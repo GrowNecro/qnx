@@ -1,0 +1,46 @@
+[
+  {
+    "judul": "Materi 1: Pangkat",
+    "level": 1,
+    "video": "assets/videos/video1.mp4",
+    "judullatihan": "Latihan Pangkat",
+    "latihan": "Hitung 5^2 + 3^3 + 2^32",
+    "jawabansistempng": "assets/images/jawaban.jpeg",
+    "jawabansistemteks": "x^2 + 2x + 1 = (x + 1)^2",
+    "jawabanuserpng": "assets/images/jawaban.jpeg",
+    "jawabanuser":"Contoh Jawaban"
+  },
+  {
+    "judul": "Materi 2: Akar",
+    "level": 1,
+    "video": "assets/videos/intro.mp4",
+    "judullatihan": "Latihan Akar",
+    "latihan": "Hitung √16 + √9",
+    "jawabansistempng": "assets/images/jawaban.jpeg",
+    "jawabansistemteks": "x^2 + 2x + 1 = (x + 1)^2",
+    "jawabanuserpng": "assets/images/jawaban.jpeg",
+    "jawabanuser": "Contoh Jawaban"
+  },
+  {
+    "judul": "Materi 3: Pecahan",
+    "level": 1,
+    "video": "assets/videos/short.mp4",
+    "judullatihan": "Latihan Pecahan",
+    "latihan": "Hitung 1/2 + 3/4",
+    "jawabansistempng": "assets/images/jawaban.jpeg",
+    "jawabansistemteks": "x^2 + 2x + 1 = (x + 1)^2",
+    "jawabanuserpng": "assets/images/jawaban.jpeg",
+    "jawabanuser": "Contoh Jawaban"
+  },
+  {
+    "judul": "Materi 4: Campuran",
+    "level": 2,
+    "video": "assets/videos/video1.mp4",
+    "judullatihan": "Latihan Campuran",
+    "latihan": "Hitung 2^2 + √25 + 3/5",
+    "jawabansistempng": "assets/images/jawaban.jpeg",
+    "jawabansistemteks": "x^2 + 2x + 1 = (x + 1)^2",
+    "jawabanuserpng": "assets/images/jawaban.jpeg",
+    "jawabanuser": "Contoh Jawaban"
+  }
+]

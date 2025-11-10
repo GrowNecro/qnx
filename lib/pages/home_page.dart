@@ -1,0 +1,64 @@
+import 'package:flutter/material.dart';
+
+class HomePage extends StatelessWidget {
+  const HomePage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: const BoxDecoration(
+          image: DecorationImage(
+            image: AssetImage(
+              'assets/images/background.jpg',
+            ), // ganti dengan foto kamu
+            fit: BoxFit.cover,
+          ),
+          // color: Color(0xFFEB9A43), // warna fallback kalau gambar belum ada
+        ),
+        child: Center(
+          child: Column(
+            
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              _menuButton(context, 'Materi', '/materi'),
+              const SizedBox(height: 20),
+              _menuButton(context, 'Pitakonan/Quizz', '/quiz'),
+              const SizedBox(height: 20),
+              _menuButton(context, 'Ulasan', '/ulasan'),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _menuButton(BuildContext context, String text, String route) {
+    final screenWidth = MediaQuery.of(context).size.width;
+
+    return SizedBox(
+      width: screenWidth * 0.95, // 80% dari lebar layar
+      height: 120,
+      child: ElevatedButton(
+        onPressed: () => Navigator.pushNamed(context, route),
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.white,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(15),
+          ),
+          elevation: 3,
+        ),
+        child: Text(
+          text,
+          style: const TextStyle(
+            color: Colors.black,
+            fontWeight: FontWeight.bold,
+            fontSize: 18,
+          ),
+        ),
+      ),
+    );
+  }
+}
