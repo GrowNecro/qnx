@@ -109,24 +109,6 @@ class AljabarUlasanPage extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.center,
                           children: [
                             const Text(
-                              'Jawaban Kamu (Teks):',
-                              style: TextStyle(
-                                color: Colors.orange,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 18,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              jawabanuser,
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 16,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                            const SizedBox(height: 24),
-                            const Text(
                               'Soal Latihan',
                               style: TextStyle(
                                 color: Colors.orange,
@@ -137,6 +119,24 @@ class AljabarUlasanPage extends StatelessWidget {
                             const SizedBox(height: 8),
                             Text(
                               latihan,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 16,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                            const SizedBox(height: 24),
+                            const Text(
+                              'Jawaban Kamu (Teks):',
+                              style: TextStyle(
+                                color: Colors.orange,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 18,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              jawabanuser,
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 16,

@@ -3,7 +3,6 @@
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:video_player/video_player.dart';
 import '../widgets/alpha_video_player.dart';
 
 /// PngTransisiStageRoute — overlay-first mode
@@ -27,12 +26,9 @@ class PngTransisiStageRoute extends PageRoute<void> {
   final Duration overlayFadeDuration;
   final Duration initialFreeze;
 
-  /// audio support
-  final String? audioAsset;
-  final bool audioLoop;
-  final bool initialAudioMuted;
-
+  /// NEW:
   /// Jika diberikan, route akan menunggu future ini selesai sebelum menampilkan pageUnder.
+  /// Jika null -> dianggap siap segera.
   final Future<void>? pageReadyFuture;
   final Duration pageReadyTimeout;
 
@@ -46,15 +42,12 @@ class PngTransisiStageRoute extends PageRoute<void> {
     this.bufferSize = 8,
     this.targetDisplayWidth,
     this.targetDisplayHeight,
-    this.stageStartFrames = 1,
+    this.stageStartFrames = 1, // default: mulai setelah 1 frame
     this.initialDelay = Duration.zero,
     this.endFrameDelay = const Duration(milliseconds: 140),
     this.overlayFadeOut = true,
     this.overlayFadeDuration = const Duration(milliseconds: 240),
     this.initialFreeze = const Duration(milliseconds: 500),
-    this.audioAsset,
-    this.audioLoop = true,
-    this.initialAudioMuted = false,
     this.pageReadyFuture,
     this.pageReadyTimeout = const Duration(milliseconds: 800),
   });
@@ -78,6 +71,7 @@ class PngTransisiStageRoute extends PageRoute<void> {
     Animation<double> a1,
     Animation<double> a2,
   ) {
+    // Hitung delay start stage dari frame count (mis. 1 frame @24fps = ~41.6ms)
     final stageStartDelay = Duration(
       milliseconds: ((1000 / fps) * stageStartFrames).round(),
     );
@@ -95,14 +89,11 @@ class PngTransisiStageRoute extends PageRoute<void> {
         targetDisplayWidth: targetDisplayWidth,
         targetDisplayHeight: targetDisplayHeight,
         initialDelay: initialDelay,
-        stageStartDelay: stageStartDelay,
+        stageStartDelay: stageStartDelay, // auto dihitung dari FPS
         endFrameDelay: endFrameDelay,
         initialFreeze: initialFreeze,
         pageReadyFuture: pageReadyFuture,
         pageReadyTimeout: pageReadyTimeout,
-        audioAsset: audioAsset,
-        audioLoop: audioLoop,
-        initialAudioMuted: initialAudioMuted,
       ),
     );
   }
@@ -122,16 +113,11 @@ class _StageOverlayBody extends StatefulWidget {
   final Duration stageStartDelay; // when pageUnder should start (e.g. 500ms)
   final Duration
   endFrameDelay; // small wait after overlay finished before hiding
-  final Duration
-  initialFreeze; // kept for compatibility but no static-first-frame logic now
+  final Duration initialFreeze; // how long to hold first frame (default 500ms)
 
+  /// NEW:
   final Future<void>? pageReadyFuture;
   final Duration pageReadyTimeout;
-
-  // audio
-  final String? audioAsset;
-  final bool audioLoop;
-  final bool initialAudioMuted;
 
   const _StageOverlayBody({
     required this.pageUnder,
@@ -149,9 +135,6 @@ class _StageOverlayBody extends StatefulWidget {
     this.initialFreeze = const Duration(milliseconds: 500),
     this.pageReadyFuture,
     this.pageReadyTimeout = const Duration(milliseconds: 800),
-    this.audioAsset,
-    this.audioLoop = true,
-    this.initialAudioMuted = false,
   });
 
   @override
@@ -162,52 +145,83 @@ class _StageOverlayBodyState extends State<_StageOverlayBody> {
   // overlay visibility
   bool _showOverlay = true;
 
+  // freeze first frame visible for `initialFreeze` OR until player reports first frame / preload done
+  bool _firstFrameFrozen = true;
+
   // whether stage (pageUnder) has been started/rendered
   bool _stageStarted = false;
 
   // whether alpha sequence finished
   bool _finished = false;
 
-  // whether preload event signaled by AlphaVideoPlayer happened
-  bool _preloadReady = false;
+  // whether player has actually rendered its first frame
+  bool _playerFirstFrameShown = false;
 
   // whether pageUnder reported ready (via provided future) or default true
   bool _pageReady = false;
+
+  // cached path for first frame (if pngPattern contains %04d)
+  late final String _firstFramePath;
 
   // Completers used to coordinate readiness
   late final Completer<void> _preloadReadyCompleter;
   late final Completer<void> _stageDelayCompleter;
 
-  // AUDIO
-  VideoPlayerController? _audioController;
-  bool _audioInitialized = false;
-  bool _audioMuted = false;
-  bool _audioAvailable = false;
-
   @override
   void initState() {
     super.initState();
 
+    // prepare first-frame asset path if pattern uses %04d
+    if (widget.pngPattern.contains('%04d')) {
+      _firstFramePath = widget.pngPattern.replaceAll(
+        '%04d',
+        1.toString().padLeft(4, '0'),
+      );
+    } else {
+      _firstFramePath = widget.pngPattern
+          .replaceAll('%d', 1.toString())
+          .replaceAll('%04', '0001');
+    }
+
+    // initialize completers
     _preloadReadyCompleter = Completer<void>();
     _stageDelayCompleter = Completer<void>();
-
-    if (widget.audioAsset != null) {
-      _initAudio(
-        widget.audioAsset!,
-        widget.audioLoop,
-        widget.initialAudioMuted,
-      );
-    }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
 
-      // Optional initialDelay (retained for compatibility)
+      // Ensure first frame is precached immediately so static frame shows instantly.
+      try {
+        precacheImage(AssetImage(_firstFramePath), context).catchError((_) {});
+      } catch (_) {
+        // ignore
+      }
+
+      // Optional initialDelay before starting any logic (kept for compatibility)
       if (widget.initialDelay > Duration.zero) {
         Future.delayed(widget.initialDelay, () {
           if (!mounted) return;
+          // no visual change here
         });
       }
+
+      // keep showing frozen first frame until player signals readiness (or until fallback)
+      setState(() {
+        _firstFrameFrozen = true;
+      });
+
+      // Fallback: after initialFreeze, if player hasn't signaled readiness, unfreeze
+      Future.delayed(widget.initialFreeze, () {
+        if (!mounted) return;
+        if (!_playerFirstFrameShown) {
+          setState(() {
+            _firstFrameFrozen = false;
+          });
+          if (!_preloadReadyCompleter.isCompleted) {
+            _preloadReadyCompleter.complete();
+          }
+        }
+      });
 
       // schedule stageStartDelay completer (frame-based small delay)
       if (widget.stageStartDelay > Duration.zero) {
@@ -220,64 +234,58 @@ class _StageOverlayBodyState extends State<_StageOverlayBody> {
         if (!_stageDelayCompleter.isCompleted) _stageDelayCompleter.complete();
       }
 
-      // wait for pageReadyFuture (with timeout) if provided
+      // NEW: wait for pageReadyFuture (with timeout) if provided
       if (widget.pageReadyFuture != null) {
+        // race between the provided future and timeout
         widget.pageReadyFuture!
             .then((_) {
               if (!mounted) return;
               _pageReady = true;
             })
             .catchError((_) {
+              // ignore errors but mark ready to avoid stalling
               if (!mounted) return;
               _pageReady = true;
+            })
+            .whenComplete(() {
+              // ensure we proceed once either future completes
             });
 
-        // timeout fallback
+        // also schedule a timeout fallback
         Future.delayed(widget.pageReadyTimeout, () {
           if (!mounted) return;
-          if (!_pageReady) _pageReady = true;
+          if (!_pageReady) {
+            // timeout - consider page ready (avoids waiting forever)
+            _pageReady = true;
+          }
         });
       } else {
+        // no future provided -> immediately mark ready
         _pageReady = true;
       }
 
-      // Wait for preload readiness AND stage delay, then check page readiness before starting stage.
+      // Wait for preload readiness AND stage delay AND page readiness before showing pageUnder.
       Future.wait([
         _preloadReadyCompleter.future,
         _stageDelayCompleter.future,
       ]).then((_) async {
-        // poll until pageReady or timeout
+        // Now wait until _pageReady becomes true (it may be set via future or immediate)
         final sw = Stopwatch()..start();
         while (!_pageReady &&
             sw.elapsed <
                 widget.pageReadyTimeout + const Duration(milliseconds: 50)) {
+          // poll small interval; this keeps us responsive to mounted state
           await Future.delayed(const Duration(milliseconds: 16));
           if (!mounted) return;
         }
         if (!mounted) return;
 
         setState(() {
+          // now we're allowed to start the stage (unhide pageUnder)
           _stageStarted = true;
         });
       });
     });
-  }
-
-  Future<void> _initAudio(String asset, bool loop, bool initialMuted) async {
-    try {
-      _audioController = VideoPlayerController.asset(asset);
-      await _audioController!.initialize();
-      _audioController!.setLooping(loop);
-      _audioMuted = initialMuted;
-      _audioInitialized = true;
-      _audioAvailable = true;
-      await _audioController!.setVolume(_audioMuted ? 0.0 : 1.0);
-      _audioController!.play();
-    } catch (e) {
-      _audioAvailable = false;
-      _audioInitialized = false;
-    }
-    if (mounted) setState(() {});
   }
 
   // Called when AlphaVideoPlayer signals finished
@@ -285,55 +293,37 @@ class _StageOverlayBodyState extends State<_StageOverlayBody> {
     if (_finished) return;
     _finished = true;
 
+    // little extra delay for last frame
     await Future.delayed(widget.endFrameDelay);
     if (!mounted) return;
 
-    if (_audioController != null && _audioAvailable) {
-      try {
-        await _audioController!.pause();
-        await _audioController!.seekTo(Duration.zero);
-      } catch (_) {}
-    }
-
+    // NO fade — hide overlay immediately (hard cut)
     setState(() {
       _showOverlay = false;
     });
   }
 
-  // Called when AlphaVideoPlayer reports preload ready or first frame rendered
-  void _onPreloadReady() {
+  // Called when AlphaVideoPlayer reports it has rendered first frame / preload ready
+  void _onPlayerFirstFrame() {
     if (!mounted) return;
-    if (_preloadReady) return;
-    _preloadReady = true;
-    if (!_preloadReadyCompleter.isCompleted) _preloadReadyCompleter.complete();
-  }
+    if (_playerFirstFrameShown) return;
+    _playerFirstFrameShown = true;
 
-  @override
-  void dispose() {
-    if (_audioController != null) {
-      try {
-        _audioController!.dispose();
-      } catch (_) {}
-      _audioController = null;
-    }
-    super.dispose();
-  }
-
-  void _toggleAudioMute() async {
-    if (!_audioAvailable || _audioController == null) return;
+    // remove the frozen static frame so the actual first frame from player becomes visible
     setState(() {
-      _audioMuted = !_audioMuted;
+      _firstFrameFrozen = false;
     });
-    try {
-      await _audioController!.setVolume(_audioMuted ? 0.0 : 1.0);
-      if (!_audioMuted && !_audioController!.value.isPlaying) {
-        await _audioController!.play();
-      }
-    } catch (_) {}
+
+    // complete preload completer so stage start can proceed (if waiting)
+    if (!_preloadReadyCompleter.isCompleted) {
+      _preloadReadyCompleter.complete();
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    // We'll mount the AlphaVideoPlayer immediately (to let it start preloading),
+    // but overlay a static first-frame image on top while _firstFrameFrozen is true.
     final alphaPlayer = AlphaVideoPlayer(
       webmAsset: '',
       pngPattern: widget.pngPattern,
@@ -342,10 +332,11 @@ class _StageOverlayBodyState extends State<_StageOverlayBody> {
       loop: widget.loop,
       forceUseWebm: false,
       onFinished: _onAlphaFinished,
+      // request prioritized preload of the first N frames (AlphaVideoPlayer supports this)
       initialPreloadFrames: 24,
       loadRestAfterPreload: true,
-      onPreloadReady: _onPreloadReady,
-      onFirstFrameRendered: _onPreloadReady,
+      onPreloadReady: _onPlayerFirstFrame,
+      onFirstFrameRendered: _onPlayerFirstFrame,
       fit: BoxFit.cover,
       bufferSize: widget.bufferSize,
       targetDisplayWidth: widget.targetDisplayWidth,
@@ -355,53 +346,73 @@ class _StageOverlayBodyState extends State<_StageOverlayBody> {
     return Stack(
       fit: StackFit.expand,
       children: [
-        // 1) pageUnder - instantiate & show only when _stageStarted && _pageReady
-        if (_stageStarted && _pageReady)
-          Positioned.fill(child: widget.pageUnder),
+        // 1) pageUnder - kept OFFSTAGE until both stage started AND pageReady.
+        //    This prevents "next page" flicker when its assets aren't ready.
+        Positioned.fill(
+          child: Offstage(
+            offstage: !_stageStarted || !_pageReady,
+            child: widget.pageUnder,
+          ),
+        ),
 
-        // 2) overlay group (player)
+        // 2) overlay group (player + optional static frame)
+        //    ignore pointers only when both stage started AND pageReady so pageUnder becomes interactive.
         Positioned.fill(
           child: IgnorePointer(
-            // block interactions while overlay still "owns" the screen
-            ignoring: _stageStarted && _pageReady,
+            ignoring:
+                _stageStarted &&
+                _pageReady, // overlay won't block taps only after page is ready & started
             child: Stack(
               fit: StackFit.expand,
               children: [
-                // show the alpha player directly (no static first-frame)
-                Positioned.fill(child: alphaPlayer),
+                // the alpha player: kept OFFSTAGE while frozen so it is mounted & preloads
+                Offstage(
+                  offstage:
+                      _firstFrameFrozen, // true => hidden but still mounted
+                  child: alphaPlayer,
+                ),
 
-                // optional audio control while overlay visible
-                if (_showOverlay && _audioAvailable)
-                  Positioned(
-                    top: 18,
-                    right: 12,
-                    child: SafeArea(
-                      minimum: const EdgeInsets.all(4),
-                      child: Material(
-                        color: Colors.black.withOpacity(0.35),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: IconButton(
-                          padding: const EdgeInsets.all(6),
-                          iconSize: 20,
-                          tooltip: _audioMuted ? 'Unmute' : 'Mute',
-                          icon: Icon(
-                            _audioMuted ? Icons.volume_off : Icons.volume_up,
-                            color: Colors.white,
-                          ),
-                          onPressed: _audioInitialized
-                              ? _toggleAudioMute
-                              : null,
-                        ),
-                      ),
-                    ),
-                  ),
+                // static first-frame overlaid while frozen (precached earlier)
+                if (_firstFrameFrozen)
+                  Positioned.fill(child: _buildFirstFrameWidget()),
               ],
             ),
           ),
         ),
+
+        // 3) in case we want to keep a visible cover while pageUnder is not yet ready,
+        //    we keep showing the static first-frame or black background (already handled above).
       ],
     );
+  }
+
+  Widget _buildFirstFrameWidget() {
+    // If backgroundBytes provided, try to use it; else try to use asset path pattern.
+    if (widget.backgroundBytes != null) {
+      return Image.memory(
+        widget.backgroundBytes!,
+        fit: BoxFit.cover,
+        gaplessPlayback: true,
+        width: double.infinity,
+        height: double.infinity,
+      );
+    }
+
+    // Try to load first frame from assets using computed path
+    try {
+      return Image.asset(
+        _firstFramePath,
+        fit: BoxFit.cover,
+        gaplessPlayback: true,
+        width: double.infinity,
+        height: double.infinity,
+        errorBuilder: (_, __, ___) {
+          // fallback to plain black if asset missing
+          return Container(color: Colors.black);
+        },
+      );
+    } catch (_) {
+      return Container(color: Colors.black);
+    }
   }
 }

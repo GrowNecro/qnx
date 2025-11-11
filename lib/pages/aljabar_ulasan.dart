@@ -1,4 +1,5 @@
-// import 'dart:io';
+// lib/pages/aljabar_ulasan.dart
+import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
@@ -37,6 +38,15 @@ class _AljabarUlasanState extends State<AljabarUlasan> {
     final text =
         prefs.getString('userText_$judullatihan') ?? 'Belum ada jawaban.';
     return {'image': imagePath, 'text': text};
+  }
+
+  bool _isNonDefaultImagePath(String? path) {
+    if (path == null) return false;
+    final p = path.trim();
+    if (p.isEmpty) return false;
+    // treat asset default path as empty
+    if (p == 'assets/images/default.png') return false;
+    return true;
   }
 
   @override
@@ -92,8 +102,46 @@ class _AljabarUlasanState extends State<AljabarUlasan> {
                                       'image': 'assets/images/default.png',
                                       'text': 'Belum ada jawaban.',
                                     };
+
                                 return GestureDetector(
-                                  onTap: () {
+                                  onTap: () async {
+                                    // Ambil jawaban user
+                                    final String userImage =
+                                        userAnswer['image'] ??
+                                        'assets/images/default.png';
+                                    final String userText =
+                                        userAnswer['text'] ??
+                                        'Belum ada jawaban.';
+
+                                    // Cek: user punya image yang valid (bukan default + file exists)
+                                    final bool hasUserImage =
+                                        _isNonDefaultImagePath(userImage) &&
+                                        File(userImage).existsSync();
+
+                                    // Cek: user punya teks jawaban (bukan kosong / bukan placeholder)
+                                    final bool hasUserText =
+                                        userText.trim().isNotEmpty &&
+                                        !userText.toLowerCase().contains(
+                                          'belum ada',
+                                        );
+
+                                    final bool allowed =
+                                        hasUserImage || hasUserText;
+
+                                    if (!allowed) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            'Ulasan belum tersedia — silakan isi jawaban teks atau unggah foto jawaban terlebih dahulu.',
+                                          ),
+                                        ),
+                                      );
+                                      return;
+                                    }
+
+                                    // Jika diperbolehkan, navigasi ke halaman ulasan.
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
@@ -106,8 +154,8 @@ class _AljabarUlasanState extends State<AljabarUlasan> {
                                           jawabansistemteks:
                                               materi['jawabansistemteks'] ??
                                               'Tidak ada teks sistem.',
-                                          jawabanuser: userAnswer['text']!,
-                                          jawabanuserpng: userAnswer['image']!,
+                                          jawabanuser: userText,
+                                          jawabanuserpng: userImage,
                                         ),
                                       ),
                                     );

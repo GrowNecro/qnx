@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:qnx/pages/aljabar_page.dart';
 import '../pages/home_page.dart';
-import '../pages/splash_screen.dart';
+// import '../pages/splash_screen.dart';
 import '../pages/materi_page.dart';
 import '../pages/quiz_page.dart';
 import '../pages/aljabar_quiz.dart';
@@ -12,7 +12,7 @@ import '../pages/aljabar_ulasan.dart';
 import '../pages/aljabar_ulasan_page.dart';
 import '../pages/video_page.dart';
 // import '../pages/video_transisi_png.dart';
-import '../utils/preload_all.dart.dart';
+// import '../utils/preload_all.dart.dart';
 
 // Import route baru untuk stage-continued transition
 import '../pages/png_transisi_stage_route.dart';
@@ -25,23 +25,28 @@ class AppRoutes {
     final args = settings.arguments as Map<String, dynamic>?;
 
     switch (settings.name) {
+      // case '/':
+      //   // create a MaterialPageRoute so we can pass the BuildContext into preload
+      //   return MaterialPageRoute(
+      //     builder: (ctx) => SplashScreen(
+      //       onPreload: () async {
+      //         // call the preload util with the context used to build the splash,
+      //         // so MediaQuery.of(ctx) inside preloadAllScreenshots works
+      //         await preloadAllScreenshots(ctx);
+      //       },
+      //       nextRouteName: '/home',
+      //       backgroundMode: SplashBackgroundMode.image,
+      //       backgroundImage: 'assets/images/splash_bg.png',
+      //     ),
+      //   );
+      // case '/home':
+      //   page = const HomePage();
+      //   // defaultTransisi = null;
+      //   defaultTransisi = 'transisi2';
+      //   break;
       case '/':
-        // create a MaterialPageRoute so we can pass the BuildContext into preload
-        return MaterialPageRoute(
-          builder: (ctx) => SplashScreen(
-            onPreload: () async {
-              // call the preload util with the context used to build the splash,
-              // so MediaQuery.of(ctx) inside preloadAllScreenshots works
-              await preloadAllScreenshots(ctx);
-            },
-            nextRouteName: '/home',
-            backgroundMode: SplashBackgroundMode.image,
-            backgroundImage: 'assets/images/splash_bg.png',
-          ),
-        );
-      case '/home':
         page = const HomePage();
-        defaultTransisi = null;
+        defaultTransisi = 'transisi2';
         break;
       case '/materi':
         page = const MateriPage();

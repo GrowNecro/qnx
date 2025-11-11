@@ -19,8 +19,7 @@ class PngTransisiStageRoute extends PageRoute<void> {
   final int bufferSize;
   final int? targetDisplayWidth;
   final int? targetDisplayHeight;
-  final int
-  stageStartFrames; // berapa frame overlay sebelum stage mulai (default 1)
+  final int stageStartFrames; // berapa frame overlay sebelum stage mulai (default 1)
   final Duration initialDelay;
   final Duration endFrameDelay;
   final bool overlayFadeOut;
@@ -120,10 +119,8 @@ class _StageOverlayBody extends StatefulWidget {
   final int? targetDisplayHeight;
   final Duration initialDelay; // delay before starting overlay (usually zero)
   final Duration stageStartDelay; // when pageUnder should start (e.g. 500ms)
-  final Duration
-  endFrameDelay; // small wait after overlay finished before hiding
-  final Duration
-  initialFreeze; // kept for compatibility but no static-first-frame logic now
+  final Duration endFrameDelay; // small wait after overlay finished before hiding
+  final Duration initialFreeze; // kept for compatibility but no static-first-frame logic now
 
   final Future<void>? pageReadyFuture;
   final Duration pageReadyTimeout;
@@ -192,11 +189,7 @@ class _StageOverlayBodyState extends State<_StageOverlayBody> {
     _stageDelayCompleter = Completer<void>();
 
     if (widget.audioAsset != null) {
-      _initAudio(
-        widget.audioAsset!,
-        widget.audioLoop,
-        widget.initialAudioMuted,
-      );
+      _initAudio(widget.audioAsset!, widget.audioLoop, widget.initialAudioMuted);
     }
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -213,8 +206,7 @@ class _StageOverlayBodyState extends State<_StageOverlayBody> {
       if (widget.stageStartDelay > Duration.zero) {
         Future.delayed(widget.stageStartDelay, () {
           if (!mounted) return;
-          if (!_stageDelayCompleter.isCompleted)
-            _stageDelayCompleter.complete();
+          if (!_stageDelayCompleter.isCompleted) _stageDelayCompleter.complete();
         });
       } else {
         if (!_stageDelayCompleter.isCompleted) _stageDelayCompleter.complete();
@@ -222,15 +214,13 @@ class _StageOverlayBodyState extends State<_StageOverlayBody> {
 
       // wait for pageReadyFuture (with timeout) if provided
       if (widget.pageReadyFuture != null) {
-        widget.pageReadyFuture!
-            .then((_) {
-              if (!mounted) return;
-              _pageReady = true;
-            })
-            .catchError((_) {
-              if (!mounted) return;
-              _pageReady = true;
-            });
+        widget.pageReadyFuture!.then((_) {
+          if (!mounted) return;
+          _pageReady = true;
+        }).catchError((_) {
+          if (!mounted) return;
+          _pageReady = true;
+        });
 
         // timeout fallback
         Future.delayed(widget.pageReadyTimeout, () {
@@ -242,15 +232,10 @@ class _StageOverlayBodyState extends State<_StageOverlayBody> {
       }
 
       // Wait for preload readiness AND stage delay, then check page readiness before starting stage.
-      Future.wait([
-        _preloadReadyCompleter.future,
-        _stageDelayCompleter.future,
-      ]).then((_) async {
+      Future.wait([_preloadReadyCompleter.future, _stageDelayCompleter.future]).then((_) async {
         // poll until pageReady or timeout
         final sw = Stopwatch()..start();
-        while (!_pageReady &&
-            sw.elapsed <
-                widget.pageReadyTimeout + const Duration(milliseconds: 50)) {
+        while (!_pageReady && sw.elapsed < widget.pageReadyTimeout + const Duration(milliseconds: 50)) {
           await Future.delayed(const Duration(milliseconds: 16));
           if (!mounted) return;
         }
@@ -356,8 +341,7 @@ class _StageOverlayBodyState extends State<_StageOverlayBody> {
       fit: StackFit.expand,
       children: [
         // 1) pageUnder - instantiate & show only when _stageStarted && _pageReady
-        if (_stageStarted && _pageReady)
-          Positioned.fill(child: widget.pageUnder),
+        if (_stageStarted && _pageReady) Positioned.fill(child: widget.pageUnder),
 
         // 2) overlay group (player)
         Positioned.fill(
@@ -379,9 +363,7 @@ class _StageOverlayBodyState extends State<_StageOverlayBody> {
                       minimum: const EdgeInsets.all(4),
                       child: Material(
                         color: Colors.black.withOpacity(0.35),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(6),
-                        ),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                         child: IconButton(
                           padding: const EdgeInsets.all(6),
                           iconSize: 20,
@@ -390,9 +372,7 @@ class _StageOverlayBodyState extends State<_StageOverlayBody> {
                             _audioMuted ? Icons.volume_off : Icons.volume_up,
                             color: Colors.white,
                           ),
-                          onPressed: _audioInitialized
-                              ? _toggleAudioMute
-                              : null,
+                          onPressed: _audioInitialized ? _toggleAudioMute : null,
                         ),
                       ),
                     ),

@@ -43,3 +43,10 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# ignore everything under assets
+/assets/**
+
+# but keep materi.json and .gitkeep files (placeholders)
+!/assets/materi.json
+!/assets/**/.gitkeep

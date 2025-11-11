@@ -1,0 +1,91 @@
+[
+  {
+    "judul": "Materi 1",
+    "level": 1,
+    "video": "assets/videos/video_quiz_1.mp4",
+    "judullatihan": "Latihan Pangkat",
+    "latihan": "Hitung 5^2 + 3^3 + 2^32",
+    "jawabansistempng": "assets/images/image_quiz_answer_1.png",
+    "jawabansistemteks": "x^2 + 2x + 1 = (x + 1)^2",
+    "jawabanuserpng": "assets/images/image_quiz_answer_1.png",
+    "jawabanuser": "Contoh Jawaban"
+  },
+  {
+    "judul": "Materi 2",
+    "level": 1,
+    "video": "assets/videos/video_quiz_2.mp4",
+    "judullatihan": "Latihan Akar",
+    "latihan": "Hitung √16 + √9",
+    "jawabansistempng": "assets/images/image_quiz_answer_2.png",
+    "jawabansistemteks": "x^2 + 2x + 1 = (x + 1)^2",
+    "jawabanuserpng": "assets/images/image_quiz_answer_1.png",
+    "jawabanuser": "Contoh Jawaban"
+  },
+  {
+    "judul": "Materi 3",
+    "level": 1,
+    "video": "assets/videos/video_quiz_3.mp4",
+    "judullatihan": "Latihan Pecahan",
+    "latihan": "Hitung 1/2 + 3/4",
+    "jawabansistempng": "assets/images/image_quiz_answer_3.png",
+    "jawabansistemteks": "x^2 + 2x + 1 = (x + 1)^2",
+    "jawabanuserpng": "assets/images/image_quiz_answer_1.png",
+    "jawabanuser": "Contoh Jawaban"
+  },
+  {
+    "judul": "Materi 4",
+    "level": 2,
+    "video": "assets/videos/video_quiz_4.mp4",
+    "judullatihan": "Latihan Campuran",
+    "latihan": "Hitung 2^2 + √25 + 3/5",
+    "jawabansistempng": "assets/images/image_quiz_answer_4.png",
+    "jawabansistemteks": "x^2 + 2x + 1 = (x + 1)^2",
+    "jawabanuserpng": "assets/images/image_quiz_answer_1.png",
+    "jawabanuser": "Contoh Jawaban"
+  },
+
+  {
+    "judul": "Materi 5",
+    "level": 3,
+    "video": "assets/videos/video_quiz_5.mp4",
+    "judullatihan": "Latihan 5",
+    "latihan": "Hitung 2^2 + √25 + 3/5",
+    "jawabansistempng": "assets/images/image_quiz_answer_5.png",
+    "jawabansistemteks": "x^2 + 2x + 1 = (x + 1)^2",
+    "jawabanuserpng": "assets/images/image_quiz_answer_1.png",
+    "jawabanuser": "Contoh Jawaban"
+  },
+  {
+    "judul": "Materi 6",
+    "level": 3,
+    "video": "assets/videos/video_quiz_6.mp4",
+    "judullatihan": "Latihan 5",
+    "latihan": "Hitung 2^2 + √25 + 3/5",
+    "jawabansistempng": "assets/images/image_quiz_answer_6.png",
+    "jawabansistemteks": "x^2 + 2x + 1 = (x + 1)^2",
+    "jawabanuserpng": "assets/images/image_quiz_answer_1.png",
+    "jawabanuser": "Contoh Jawaban"
+  },
+  {
+    "judul": "Materi 7",
+    "level": 3,
+    "video": "assets/videos/video_quiz_7.mp4",
+    "judullatihan": "Latihan 5",
+    "latihan": "Hitung 2^2 + √25 + 3/5",
+    "jawabansistempng": "assets/images/image_quiz_answer_7.png",
+    "jawabansistemteks": "x^2 + 2x + 1 = (x + 1)^2",
+    "jawabanuserpng": "assets/images/image_quiz_answer_1.png",
+    "jawabanuser": "Contoh Jawaban"
+  },
+  {
+    "judul": "Materi 8",
+    "level": 3,
+    "video": "assets/videos/video_quiz_8.mp4",
+    "judullatihan": "Latihan 5",
+    "latihan": "Hitung 2^2 + √25 + 3/5",
+    "jawabansistempng": "assets/images/image_quiz_answer_8.png",
+    "jawabansistemteks": "x^2 + 2x + 1 = (x + 1)^2",
+    "jawabanuserpng": "assets/images/image_quiz_answer_1.png",
+    "jawabanuser": "Contoh Jawaban"
+  }
+]

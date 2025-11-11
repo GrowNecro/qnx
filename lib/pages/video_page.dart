@@ -1,6 +1,8 @@
+import 'dart:convert';
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
-import 'dart:convert';
 import 'package:flutter/services.dart'
     show rootBundle, SystemChrome, SystemUiMode;
 import '../pages/aljabar_quiz_page.dart';
@@ -60,8 +62,7 @@ class _VideoPageState extends State<VideoPage> {
       }
     }
 
-    // Jika video dipause oleh user (bukan karena end), kita tidak otomatis show
-    // kecuali kita setnya di onTap (di bagian UI)
+    // Jangan otomatis tunjukkan tombol saat pause yang dihasilkan karena end
   }
 
   @override
@@ -78,13 +79,11 @@ class _VideoPageState extends State<VideoPage> {
     if (!_controller.value.isInitialized) return;
 
     if (_controller.value.isPlaying) {
-      // Jika sedang playing: pause dan tunjukkan tombol latihan
       setState(() {
         _controller.pause();
         _showLatihanButton = true;
       });
     } else {
-      // Jika sedang pause: play dan sembunyikan tombol latihan
       setState(() {
         _controller.play();
         _showLatihanButton = false;
@@ -93,7 +92,6 @@ class _VideoPageState extends State<VideoPage> {
   }
 
   Future<void> _goToLatihan(BuildContext context) async {
-    // Hentikan video dulu dan kembalikan ke awal
     _controller.pause();
     _controller.seekTo(Duration.zero);
 
@@ -141,26 +139,47 @@ class _VideoPageState extends State<VideoPage> {
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
-        // SafeArea tetap agar tombol nav / area system tidak tertimpa
         child: Stack(
           children: [
-            // Video mengambil seluruh ruang
+            // Video area — sekarang menampilkan ukuran asli (atau diskalakan turun jika terlalu besar)
             Positioned.fill(
               child: _isInitialized
                   ? GestureDetector(
                       onTap: _onCenterTapped,
-                      child: FittedBox(
-                        fit: BoxFit.cover,
-                        clipBehavior: Clip.hardEdge,
-                        child: SizedBox(
-                          width:
-                              _controller.value.size?.width ??
-                              MediaQuery.of(context).size.width,
-                          height:
-                              _controller.value.size?.height ??
-                              MediaQuery.of(context).size.height,
-                          child: VideoPlayer(_controller),
-                        ),
+                      child: LayoutBuilder(
+                        builder: (context, constraints) {
+                          final videoSize =
+                              _controller.value.size ??
+                              Size(constraints.maxWidth, constraints.maxHeight);
+
+                          // jika videoSize undefined (0) fallback ke layar
+                          final videoW = (videoSize.width <= 0)
+                              ? constraints.maxWidth
+                              : videoSize.width;
+                          final videoH = (videoSize.height <= 0)
+                              ? constraints.maxHeight
+                              : videoSize.height;
+
+                          // hitung skala maksimum supaya video tidak melebihi layar (skala <= 1)
+                          final scale = math.min(
+                            1.0,
+                            math.min(
+                              constraints.maxWidth / videoW,
+                              constraints.maxHeight / videoH,
+                            ),
+                          );
+
+                          final displayW = videoW * scale;
+                          final displayH = videoH * scale;
+
+                          return Center(
+                            child: SizedBox(
+                              width: displayW,
+                              height: displayH,
+                              child: ClipRect(child: VideoPlayer(_controller)),
+                            ),
+                          );
+                        },
                       ),
                     )
                   : const Center(
@@ -168,7 +187,7 @@ class _VideoPageState extends State<VideoPage> {
                     ),
             ),
 
-            // Top bar transparan (kembali + judul) — tampil di atas video
+            // Top bar transparan (kembali + judul)
             Positioned(
               left: 0,
               right: 0,
@@ -184,7 +203,6 @@ class _VideoPageState extends State<VideoPage> {
                 leading: IconButton(
                   icon: const Icon(Icons.arrow_back),
                   onPressed: () {
-                    // restore UI mode & pop
                     SystemChrome.setEnabledSystemUIMode(
                       SystemUiMode.edgeToEdge,
                     );
@@ -194,7 +212,7 @@ class _VideoPageState extends State<VideoPage> {
               ),
             ),
 
-            // Center play icon (besar) — hanya ikon, ketuk anywhere untuk toggle
+            // Center play icon (besar)
             if (_isInitialized && !_controller.value.isPlaying)
               Center(
                 child: IconButton(
@@ -205,7 +223,7 @@ class _VideoPageState extends State<VideoPage> {
                 ),
               ),
 
-            // Tombol latihan overlay (muncul saat _showLatihanButton == true)
+            // Tombol latihan overlay
             if (_showLatihanButton)
               Positioned.fill(
                 child: Container(
@@ -217,7 +235,6 @@ class _VideoPageState extends State<VideoPage> {
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      // Optional teks kecil
                       Container(
                         margin: const EdgeInsets.only(bottom: 12),
                         padding: const EdgeInsets.symmetric(
@@ -233,7 +250,6 @@ class _VideoPageState extends State<VideoPage> {
                           style: TextStyle(color: Colors.white),
                         ),
                       ),
-
                       ElevatedButton(
                         onPressed: () => _goToLatihan(context),
                         style: ElevatedButton.styleFrom(
