@@ -62,7 +62,7 @@ class AljabarUlasanPage extends StatelessWidget {
         children: [
           SizedBox.expand(
             child: Image.asset(
-              'assets/images/background.jpg',
+              'assets/images/background.png',
               fit: BoxFit.cover,
             ),
           ),

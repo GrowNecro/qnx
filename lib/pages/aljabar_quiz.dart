@@ -35,7 +35,7 @@ class _AljabarQuizState extends State<AljabarQuiz> {
           // Background image
           SizedBox.expand(
             child: Image.asset(
-              'assets/images/background.jpg', // sesuaikan nama file
+              'assets/images/background.png', // sesuaikan nama file
               fit: BoxFit.cover,
             ),
           ),

@@ -15,7 +15,7 @@ class UlasanPage extends StatelessWidget {
             decoration: const BoxDecoration(
               image: DecorationImage(
                 image: AssetImage(
-                  'assets/images/background.jpg',
+                  'assets/images/background.png',
                 ), // ganti path sesuai foto
                 fit: BoxFit.cover,
               ),

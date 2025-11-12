@@ -13,7 +13,7 @@ class QuizPage extends StatelessWidget {
           // Background image
           SizedBox.expand(
             child: Image.asset(
-              'assets/images/background.jpg', // sesuaikan nama file background
+              'assets/images/background.png', // sesuaikan nama file background
               fit: BoxFit.cover,
             ),
           ),

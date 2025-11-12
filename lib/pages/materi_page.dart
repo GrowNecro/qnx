@@ -15,7 +15,7 @@ class MateriPage extends StatelessWidget {
             decoration: const BoxDecoration(
               image: DecorationImage(
                 image: AssetImage(
-                  'assets/images/background.jpg',
+                  'assets/images/background.png',
                 ), // ganti path sesuai foto
                 fit: BoxFit.cover,
               ),
@@ -80,6 +80,7 @@ class MateriPage extends StatelessWidget {
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.white.withOpacity(
             0.9,
+            
           ), // biar sedikit transparan
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(15),

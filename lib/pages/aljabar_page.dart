@@ -35,7 +35,7 @@ class _AljabarPageState extends State<AljabarPage> {
           // Background image
           SizedBox.expand(
             child: Image.asset(
-              'assets/images/background.jpg', // ganti sesuai path gambar
+              'assets/images/background.png', // ganti sesuai path gambar
               fit: BoxFit.cover,
             ),
           ),

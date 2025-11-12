@@ -78,6 +78,7 @@ flutter:
   - assets/videos/
   - assets/images/
   - assets/frames/intro/
+  - assets/icon/
   - assets/frames/short/
   - assets/materi.json
   # An image asset can refer to one or more resolution-specific "variants", see

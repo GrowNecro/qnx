@@ -76,7 +76,7 @@ class AljabarQuizPage extends StatelessWidget {
           // Background image
           SizedBox.expand(
             child: Image.asset(
-              'assets/images/background.jpg',
+              'assets/images/background.png',
               fit: BoxFit.cover,
             ),
           ),
@@ -111,10 +111,10 @@ class AljabarQuizPage extends StatelessWidget {
                     alignment: Alignment.topCenter,
                     child: Container(
                       width: screenWidth * 0.9,
-                      height: screenHeight * 0.55,
+                      height: screenHeight * 0.8,
                       padding: const EdgeInsets.all(24),
                       decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.7),
+                        color: Colors.black.withOpacity(0.25),
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
@@ -129,7 +129,7 @@ class AljabarQuizPage extends StatelessWidget {
                           textAlign: TextAlign.center,
                           text: TextSpan(
                             style: const TextStyle(
-                              fontSize: 18,
+                              fontSize: 25,
                               color: Colors.white,
                             ),
                             children: parseMathText(latihan),
@@ -154,7 +154,7 @@ class AljabarQuizPage extends StatelessWidget {
                       );
                     },
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.orange,
+                      backgroundColor: Colors.black.withOpacity(0.25),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 40,
                         vertical: 16,

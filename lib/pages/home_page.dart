@@ -5,31 +5,41 @@ class HomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+
     return Scaffold(
       body: Container(
         width: double.infinity,
         height: double.infinity,
         decoration: const BoxDecoration(
           image: DecorationImage(
-            image: AssetImage(
-              'assets/images/background.jpg',
-            ), // ganti dengan foto kamu
+            image: AssetImage('assets/images/background.png'),
             fit: BoxFit.cover,
           ),
-          // color: Color(0xFFEB9A43), // warna fallback kalau gambar belum ada
         ),
-        child: Center(
-          child: Column(
-            
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              _menuButton(context, 'Materi', '/materi'),
-              const SizedBox(height: 20),
-              _menuButton(context, 'Pitakonan/Quizz', '/quiz'),
-              const SizedBox(height: 20),
-              _menuButton(context, 'Ulasan', '/ulasan'),
-            ],
-          ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Expanded(
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Image.asset(
+                      'assets/icon/icon.png',
+                      height: screenWidth * 0.5,
+                      fit: BoxFit.fill,
+                    ),
+                    _menuButton(context, 'Materi', '/materi'),
+                    const SizedBox(height: 20),
+                    _menuButton(context, 'Pitakonan/Quiz', '/quiz'),
+                    const SizedBox(height: 20),
+                    _menuButton(context, 'Ulasan', '/ulasan'),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -39,12 +49,12 @@ class HomePage extends StatelessWidget {
     final screenWidth = MediaQuery.of(context).size.width;
 
     return SizedBox(
-      width: screenWidth * 0.95, // 80% dari lebar layar
+      width: screenWidth * 0.9,
       height: 120,
       child: ElevatedButton(
         onPressed: () => Navigator.pushNamed(context, route),
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.white,
+          backgroundColor: Colors.white.withOpacity(0.85),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(15),
           ),
@@ -52,10 +62,12 @@ class HomePage extends StatelessWidget {
         ),
         child: Text(
           text,
+          textAlign: TextAlign.center,
           style: const TextStyle(
             color: Colors.black,
             fontWeight: FontWeight.bold,
-            fontSize: 18,
+            fontSize: 36,
+            // fontFamily: 
           ),
         ),
       ),

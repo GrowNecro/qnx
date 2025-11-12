@@ -112,7 +112,7 @@ class _JawabanPageState extends State<JawabanPage> {
         children: [
           SizedBox.expand(
             child: Image.asset(
-              'assets/images/background.jpg',
+              'assets/images/background.png',
               fit: BoxFit.cover,
             ),
           ),
@@ -144,11 +144,11 @@ class _JawabanPageState extends State<JawabanPage> {
                       height: screenWidth * 1.8,
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.6),
+                        color: Colors.black.withOpacity(0.3),
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.25),
+                            color: Colors.black.withOpacity(0.2),
                             blurRadius: 8,
                             offset: const Offset(0, 4),
                           ),
