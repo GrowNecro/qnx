@@ -1,20 +1,24 @@
 import 'dart:convert';
 import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:flutter/services.dart'
     show rootBundle, SystemChrome, SystemUiMode;
+import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import '../pages/aljabar_quiz_page.dart';
 
 class VideoPage extends StatefulWidget {
-  final String videoPath;
+  final String videoPath; // could be asset path, http(s) mp4 or YouTube URL
   final String judullatihan;
+
+  /// Path asset gambar yang ingin ditampilkan ketika video selesai.
+  final String endBackgroundAsset;
 
   const VideoPage({
     super.key,
     required this.videoPath,
     required this.judullatihan,
+    this.endBackgroundAsset = 'assets/images/background.png',
   });
 
   @override
@@ -22,91 +26,215 @@ class VideoPage extends StatefulWidget {
 }
 
 class _VideoPageState extends State<VideoPage> {
-  late VideoPlayerController _controller;
+  VideoPlayerController? _videoController;
+  YoutubePlayerController? _youtubeController;
+
+  bool _isYoutube = false;
+  bool _isNetworkMp4 = false;
+  bool _isAsset = false;
+
   bool _showLatihanButton = false;
   bool _isInitialized = false;
+  bool _youtubeReady = false;
+  bool _endImagePrecached = false;
+
+  /// Menandakan video selesai dan tampilkan gambar akhir.
+  bool _showEndImage = false;
 
   @override
   void initState() {
     super.initState();
 
-    // Masuk ke mode fullscreen immersive
+    // Fullscreen immersive
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
-    _controller = VideoPlayerController.asset(widget.videoPath)
-      ..initialize().then((_) {
-        setState(() {
-          _isInitialized = true;
-        });
-        _controller.play();
-      });
+    // Preload background agar tidak flicker putih
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      precacheImage(AssetImage(widget.endBackgroundAsset), context)
+          .then((_) {
+            if (!mounted) return;
+            setState(() => _endImagePrecached = true);
+          })
+          .catchError((_) {
+            if (!mounted) return;
+            setState(() => _endImagePrecached = false);
+          });
+    });
 
-    // Listener untuk mendeteksi akhir video dan perubahan status
-    _controller.addListener(_videoListener);
+    _detectAndInitController();
+  }
+
+  void _detectAndInitController() {
+    final path = widget.videoPath.trim();
+
+    // Deteksi YouTube
+    final youtubeId = YoutubePlayer.convertUrlToId(path);
+    if (youtubeId != null && youtubeId.isNotEmpty) {
+      _isYoutube = true;
+      _initYoutubeController(youtubeId);
+      return;
+    }
+
+    // Deteksi network atau asset
+    if (path.startsWith('http://') || path.startsWith('https://')) {
+      _isNetworkMp4 = true;
+      _videoController = VideoPlayerController.network(path)
+        ..initialize().then((_) {
+          if (!mounted) return;
+          setState(() => _isInitialized = true);
+          _videoController?.play();
+        });
+    } else {
+      _isAsset = true;
+      _videoController = VideoPlayerController.asset(path)
+        ..initialize().then((_) {
+          if (!mounted) return;
+          setState(() => _isInitialized = true);
+          _videoController?.play();
+        });
+    }
+
+    if (_videoController != null) {
+      _videoController!.addListener(_videoListener);
+    }
+  }
+
+  void _initYoutubeController(String videoId) {
+    _youtubeController = YoutubePlayerController(
+      initialVideoId: videoId,
+      flags: const YoutubePlayerFlags(
+        autoPlay: true,
+        mute: false,
+        forceHD: false,
+        enableCaption: false,
+        disableDragSeek: false,
+        hideControls: true,
+        controlsVisibleAtStart: false,
+        loop: false,
+        useHybridComposition: true,
+      ),
+    )..addListener(_youtubeListener);
+  }
+
+  void _youtubeListener() {
+    if (!mounted || _youtubeController == null) return;
+
+    final value = _youtubeController!.value;
+
+    if (value.isReady && !_youtubeReady) {
+      setState(() => _youtubeReady = true);
+    }
+
+    // Saat video berakhir
+    if (value.playerState == PlayerState.ended) {
+      if (!_showEndImage || !_showLatihanButton) {
+        setState(() {
+          _showEndImage = true;
+          _showLatihanButton = true;
+        });
+      }
+      try {
+        _youtubeController?.pause();
+      } catch (_) {}
+    }
   }
 
   void _videoListener() {
-    if (!_controller.value.isInitialized) return;
+    final c = _videoController;
+    if (c == null || !c.value.isInitialized) return;
 
-    final position = _controller.value.position;
-    final duration = _controller.value.duration;
+    final position = c.value.position;
+    final duration = c.value.duration;
 
-    // jika duration ada dan posisi hampir sama dengan durasi -> selesai
     if (duration != null &&
         position != null &&
-        position >= duration - const Duration(milliseconds: 200)) {
-      if (!_showLatihanButton) {
+        position >= duration - const Duration(milliseconds: 150)) {
+      if (c.value.isPlaying) c.pause();
+      if (!_showEndImage || !_showLatihanButton) {
         setState(() {
+          _showEndImage = true;
           _showLatihanButton = true;
         });
       }
     }
-
-    // Jangan otomatis tunjukkan tombol saat pause yang dihasilkan karena end
   }
 
   @override
   void dispose() {
-    // Kembalikan UI mode
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
 
-    _controller.removeListener(_videoListener);
-    _controller.dispose();
+    try {
+      _videoController?.removeListener(_videoListener);
+      _videoController?.dispose();
+    } catch (_) {}
+
+    try {
+      _youtubeController?.removeListener(_youtubeListener);
+      _youtubeController?.dispose();
+    } catch (_) {}
+
     super.dispose();
   }
 
   void _onCenterTapped() {
-    if (!_controller.value.isInitialized) return;
+    if (_isYoutube) {
+      if (_youtubeController == null || !_youtubeReady) return;
+      final playing = _youtubeController!.value.isPlaying;
+      if (playing) {
+        _youtubeController!.pause();
+        setState(() => _showLatihanButton = true);
+      } else {
+        _youtubeController!.play();
+        setState(() {
+          _showLatihanButton = false;
+          _showEndImage = false;
+        });
+      }
+      return;
+    }
 
-    if (_controller.value.isPlaying) {
-      setState(() {
-        _controller.pause();
-        _showLatihanButton = true;
-      });
+    if (_videoController == null || !_videoController!.value.isInitialized)
+      return;
+
+    if (_videoController!.value.isPlaying) {
+      _videoController!.pause();
+      setState(() => _showLatihanButton = true);
     } else {
+      _videoController!.play();
       setState(() {
-        _controller.play();
         _showLatihanButton = false;
+        _showEndImage = false;
       });
     }
   }
 
   Future<void> _goToLatihan(BuildContext context) async {
-    _controller.pause();
-    _controller.seekTo(Duration.zero);
+    if (_isYoutube) {
+      try {
+        _youtubeController?.pause();
+        _youtubeController?.seekTo(const Duration(seconds: 0));
+      } catch (_) {}
+    } else {
+      try {
+        _videoController?.pause();
+        _videoController?.seekTo(Duration.zero);
+      } catch (_) {}
+    }
 
     try {
-      final String jsonString = await rootBundle.loadString(
-        'assets/materi.json',
-      );
-      final List<dynamic> materiList = json.decode(jsonString);
+      final jsonString = await rootBundle.loadString('assets/materi.json');
+      final List<dynamic> rawList = json.decode(jsonString);
+
+      final List<Map<String, dynamic>> materiList = rawList
+          .whereType<Map<String, dynamic>>()
+          .toList(growable: false);
 
       final selected = materiList.firstWhere(
         (m) => m['judullatihan'] == widget.judullatihan,
-        orElse: () => null,
+        orElse: () => <String, dynamic>{},
       );
 
-      if (selected != null && selected['latihan'] != null) {
+      if (selected.isNotEmpty && selected['latihan'] != null) {
         if (!mounted) return;
         Navigator.push(
           context,
@@ -133,61 +261,101 @@ class _VideoPageState extends State<VideoPage> {
     }
   }
 
+  Widget _buildVideoContent(BoxConstraints constraints) {
+    // Tampilkan gambar akhir jika sudah selesai
+    if (_showEndImage) {
+      if (!_endImagePrecached) {
+        return const SizedBox.expand(
+          child: DecoratedBox(decoration: BoxDecoration(color: Colors.black)),
+        );
+      }
+
+      return SizedBox.expand(
+        child: Container(
+          decoration: BoxDecoration(
+            color: Colors.black,
+            image: DecorationImage(
+              image: AssetImage(widget.endBackgroundAsset),
+              fit: BoxFit.cover,
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Untuk YouTube
+    if (_isYoutube) {
+      if (_youtubeController == null) {
+        return const Center(
+          child: CircularProgressIndicator(color: Colors.orange),
+        );
+      }
+      return SizedBox.expand(
+        child: FittedBox(
+          fit: BoxFit.cover,
+          clipBehavior: Clip.hardEdge,
+          child: SizedBox(
+            width: constraints.maxWidth,
+            height: constraints.maxHeight,
+            child: YoutubePlayer(
+              controller: _youtubeController!,
+              showVideoProgressIndicator: false,
+              progressIndicatorColor: Colors.orange,
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Untuk native video
+    if (!_isInitialized || _videoController == null) {
+      return const Center(
+        child: CircularProgressIndicator(color: Colors.orange),
+      );
+    }
+
+    final size =
+        _videoController!.value.size ??
+        Size(constraints.maxWidth, constraints.maxHeight);
+    final videoW = size.width <= 0 ? constraints.maxWidth : size.width;
+    final videoH = size.height <= 0 ? constraints.maxHeight : size.height;
+
+    return SizedBox.expand(
+      child: FittedBox(
+        fit: BoxFit.cover,
+        clipBehavior: Clip.hardEdge,
+        child: SizedBox(
+          width: videoW,
+          height: videoH,
+          child: VideoPlayer(_videoController!),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Fullscreen layout: gunakan Stack penuh
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
         child: Stack(
           children: [
-            // Video area — sekarang menampilkan ukuran asli (atau diskalakan turun jika terlalu besar)
+            // Video Area
             Positioned.fill(
-              child: _isInitialized
-                  ? GestureDetector(
-                      onTap: _onCenterTapped,
-                      child: LayoutBuilder(
-                        builder: (context, constraints) {
-                          final videoSize =
-                              _controller.value.size ??
-                              Size(constraints.maxWidth, constraints.maxHeight);
-
-                          // jika videoSize undefined (0) fallback ke layar
-                          final videoW = (videoSize.width <= 0)
-                              ? constraints.maxWidth
-                              : videoSize.width;
-                          final videoH = (videoSize.height <= 0)
-                              ? constraints.maxHeight
-                              : videoSize.height;
-
-                          // hitung skala maksimum supaya video tidak melebihi layar (skala <= 1)
-                          final scale = math.min(
-                            1.0,
-                            math.min(
-                              constraints.maxWidth / videoW,
-                              constraints.maxHeight / videoH,
-                            ),
-                          );
-
-                          final displayW = videoW * scale;
-                          final displayH = videoH * scale;
-
-                          return Center(
-                            child: SizedBox(
-                              width: displayW,
-                              height: displayH,
-                              child: ClipRect(child: VideoPlayer(_controller)),
-                            ),
-                          );
-                        },
-                      ),
-                    )
-                  : const Center(
-                      child: CircularProgressIndicator(color: Colors.orange),
-                    ),
+              child: GestureDetector(
+                onTap: _onCenterTapped,
+                child: _buildVideoContent(
+                  MediaQuery.of(context).size == Size.zero
+                      ? const BoxConstraints.expand()
+                      : BoxConstraints(
+                          maxWidth: MediaQuery.of(context).size.width,
+                          maxHeight: MediaQuery.of(context).size.height,
+                        ),
+                ),
+              ),
             ),
 
-            // Top bar transparan (kembali + judul)
+            // Top Bar
             Positioned(
               left: 0,
               right: 0,
@@ -195,13 +363,17 @@ class _VideoPageState extends State<VideoPage> {
               child: AppBar(
                 backgroundColor: Colors.black.withOpacity(0.35),
                 elevation: 0,
+                iconTheme: const IconThemeData(color: Colors.white),
                 title: Text(
                   widget.judullatihan,
-                  style: const TextStyle(fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
                 ),
                 centerTitle: true,
                 leading: IconButton(
-                  icon: const Icon(Icons.arrow_back),
+                  icon: const Icon(Icons.arrow_back, color: Colors.white),
                   onPressed: () {
                     SystemChrome.setEnabledSystemUIMode(
                       SystemUiMode.edgeToEdge,
@@ -212,8 +384,11 @@ class _VideoPageState extends State<VideoPage> {
               ),
             ),
 
-            // Center play icon (besar)
-            if (_isInitialized && !_controller.value.isPlaying)
+            // Tombol Play (hanya untuk native video)
+            if (!_isYoutube &&
+                _isInitialized &&
+                !_videoController!.value.isPlaying &&
+                !_showEndImage)
               Center(
                 child: IconButton(
                   iconSize: 96,
@@ -223,7 +398,7 @@ class _VideoPageState extends State<VideoPage> {
                 ),
               ),
 
-            // Tombol latihan overlay
+            // Tombol Latihan
             if (_showLatihanButton)
               Positioned.fill(
                 child: Container(
