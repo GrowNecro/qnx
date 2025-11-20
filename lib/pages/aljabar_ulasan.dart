@@ -4,7 +4,6 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'aljabar_ulasan_page.dart';
 
 class AljabarUlasan extends StatefulWidget {
   const AljabarUlasan({super.key});
@@ -29,24 +28,35 @@ class _AljabarUlasanState extends State<AljabarUlasan> {
     });
   }
 
-  // Ambil jawaban user (image & teks) per judullatihan
+  /// Ambil jawaban user (image & teks) per judullatihan
   Future<Map<String, String>> _getUserAnswer(String judullatihan) async {
     final prefs = await SharedPreferences.getInstance();
-    final imagePath =
-        prefs.getString('userImagePath_$judullatihan') ??
-        'assets/images/default.png';
-    final text =
-        prefs.getString('userText_$judullatihan') ?? 'Belum ada jawaban.';
+    final imagePath = prefs.getString('userImagePath_$judullatihan') ?? '';
+    final text = prefs.getString('userText_$judullatihan') ?? '';
     return {'image': imagePath, 'text': text};
   }
 
-  bool _isNonDefaultImagePath(String? path) {
-    if (path == null) return false;
-    final p = path.trim();
-    if (p.isEmpty) return false;
-    // treat asset default path as empty
-    if (p == 'assets/images/default.png') return false;
-    return true;
+  /// Cek apakah user punya jawaban teks atau gambar (minimal salah satu)
+  bool _hasAnyAnswer(String? imagePath, String? text) {
+    final hasText = text != null && text.trim().isNotEmpty;
+
+    final hasImage =
+        imagePath != null &&
+        imagePath.trim().isNotEmpty &&
+        File(imagePath).existsSync();
+
+    return hasText || hasImage;
+  }
+
+  Widget _buildUserImage(String imagePath) {
+    if (imagePath.trim().isNotEmpty && File(imagePath).existsSync()) {
+      return Image.file(File(imagePath), fit: BoxFit.contain);
+    }
+    return const Icon(
+      Icons.image_not_supported,
+      size: 100,
+      color: Colors.white30,
+    );
   }
 
   @override
@@ -66,14 +76,14 @@ class _AljabarUlasanState extends State<AljabarUlasan> {
           SafeArea(
             child: Column(
               children: [
-                // AppBar transparan
                 AppBar(
                   backgroundColor: Colors.transparent,
                   title: const Text(
-                    'Ulasan: Aljabar',
+                    'Review: Algebra',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
+                      fontSize: 30,
                     ),
                   ),
                   centerTitle: true,
@@ -84,7 +94,7 @@ class _AljabarUlasanState extends State<AljabarUlasan> {
                   ),
                 ),
                 const SizedBox(height: 20),
-                // Konten utama
+
                 Expanded(
                   child: materiList.isEmpty
                       ? const Center(child: CircularProgressIndicator())
@@ -93,135 +103,147 @@ class _AljabarUlasanState extends State<AljabarUlasan> {
                           itemCount: materiList.length,
                           itemBuilder: (context, index) {
                             final materi = materiList[index];
+                            final nomor = index + 1;
+
                             return FutureBuilder<Map<String, String>>(
                               future: _getUserAnswer(materi['judullatihan']),
                               builder: (context, snapshot) {
-                                final userAnswer =
-                                    snapshot.data ??
-                                    {
-                                      'image': 'assets/images/default.png',
-                                      'text': 'Belum ada jawaban.',
-                                    };
+                                if (!snapshot.hasData) {
+                                  return const SizedBox.shrink();
+                                }
 
-                                return GestureDetector(
-                                  onTap: () async {
-                                    // Ambil jawaban user
-                                    final String userImage =
-                                        userAnswer['image'] ??
-                                        'assets/images/default.png';
-                                    final String userText =
-                                        userAnswer['text'] ??
-                                        'Belum ada jawaban.';
+                                final userAnswer = snapshot.data!;
+                                final userImg = userAnswer['image'] ?? '';
+                                final userTxt = userAnswer['text'] ?? '';
 
-                                    // Cek: user punya image yang valid (bukan default + file exists)
-                                    final bool hasUserImage =
-                                        _isNonDefaultImagePath(userImage) &&
-                                        File(userImage).existsSync();
+                                // ❗ Filter: hanya tampilkan kalau ada jawaban teks / gambar
+                                final allowed = _hasAnyAnswer(userImg, userTxt);
 
-                                    // Cek: user punya teks jawaban (bukan kosong / bukan placeholder)
-                                    final bool hasUserText =
-                                        userText.trim().isNotEmpty &&
-                                        !userText.toLowerCase().contains(
-                                          'belum ada',
-                                        );
+                                if (!allowed) {
+                                  // Tidak ada jawaban sama sekali → tidak ditampilkan
+                                  return const SizedBox.shrink();
+                                }
 
-                                    final bool allowed =
-                                        hasUserImage || hasUserText;
-
-                                    if (!allowed) {
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                            'Ulasan belum tersedia — silakan isi jawaban teks atau unggah foto jawaban terlebih dahulu.',
+                                return Align(
+                                  alignment: Alignment.center,
+                                  child: Container(
+                                    width: screenWidth * 0.9,
+                                    margin: const EdgeInsets.only(bottom: 20),
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      color: Colors.black.withOpacity(0.65),
+                                      borderRadius: BorderRadius.circular(16),
+                                      boxShadow: [
+                                        BoxShadow(
+                                          color: Colors.black.withOpacity(0.4),
+                                          blurRadius: 8,
+                                          offset: const Offset(0, 4),
+                                        ),
+                                      ],
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        // NOMOR + JUDUL
+                                        Center(
+                                          child: Text(
+                                            '$nomor. ${materi['judullatihan']}',
+                                            style: const TextStyle(
+                                              color: Colors.orange,
+                                              fontSize: 20,
+                                              fontWeight: FontWeight.bold,
+                                            ),
+                                            textAlign: TextAlign.center,
                                           ),
                                         ),
-                                      );
-                                      return;
-                                    }
+                                        const SizedBox(height: 20),
 
-                                    // Jika diperbolehkan, navigasi ke halaman ulasan.
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) => AljabarUlasanPage(
-                                          judullatihan: materi['judullatihan'],
-                                          latihan: materi['latihan'],
-                                          jawabansistempng:
-                                              materi['jawabansistempng'] ??
-                                              'assets/images/default.png',
-                                          jawabansistemteks:
-                                              materi['jawabansistemteks'] ??
-                                              'Tidak ada teks sistem.',
-                                          jawabanuser: userText,
-                                          jawabanuserpng: userImage,
+                                        // Soal Latihan
+                                        const Text(
+                                          'Exercise Question:',
+                                          style: TextStyle(
+                                            color: Colors.white,
+                                            fontWeight: FontWeight.bold,
+                                          ),
                                         ),
-                                      ),
-                                    );
-                                  },
-                                  child: Align(
-                                    alignment: Alignment.center,
-                                    child: Container(
-                                      width: screenWidth * 0.9,
-                                      margin: const EdgeInsets.only(bottom: 20),
-                                      padding: const EdgeInsets.all(16),
-                                      height: 120,
-                                      decoration: BoxDecoration(
-                                        color: Colors.black.withOpacity(0.6),
-                                        borderRadius: BorderRadius.circular(16),
-                                        boxShadow: [
-                                          BoxShadow(
-                                            color: Colors.black.withOpacity(
-                                              0.25,
-                                            ),
-                                            blurRadius: 8,
-                                            offset: const Offset(0, 4),
+                                        Text(
+                                          materi['latihan'] ??
+                                              'Exercise question not available.',
+                                          style: const TextStyle(
+                                            color: Colors.white,
                                           ),
-                                        ],
-                                      ),
-                                      child: Stack(
-                                        children: [
-                                          Padding(
-                                            padding: const EdgeInsets.only(
-                                              top: 10,
-                                              bottom: 10,
-                                            ),
-                                            child: Text(
-                                              materi['judullatihan'] ??
-                                                  'Judul kosong',
-                                              style: const TextStyle(
-                                                fontSize: 18,
-                                                fontWeight: FontWeight.bold,
-                                                color: Colors.white,
-                                              ),
+                                        ),
+
+                                        const SizedBox(height: 20),
+
+                                        // Jawaban User (Teks)
+                                        const Text(
+                                          'Your Answer (Text):',
+                                          style: TextStyle(
+                                            color: Colors.orange,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        Text(
+                                          userTxt.isEmpty
+                                              ? '(No text answer provided)'
+                                              : userTxt,
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                          ),
+                                        ),
+
+                                        const SizedBox(height: 20),
+
+                                        // Jawaban User (Gambar)
+                                        const Text(
+                                          'Your Answer (Image):',
+                                          style: TextStyle(
+                                            color: Colors.orange,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Center(child: _buildUserImage(userImg)),
+
+                                        const SizedBox(height: 24),
+
+                                        // Jawaban Sistem (Teks)
+                                        const Text(
+                                          'System Answer (Text):',
+                                          style: TextStyle(
+                                            color: Colors.orange,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        Text(
+                                          materi['jawabansistemteks'] ??
+                                              'No system text available.',
+                                          style: const TextStyle(
+                                            color: Colors.white,
+                                          ),
+                                        ),
+
+                                        const SizedBox(height: 20),
+
+                                        // Jawaban Sistem (Langkah / Gambar)
+                                        const Text(
+                                          'System Answer (Step):',
+                                          style: TextStyle(
+                                            color: Colors.orange,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        if (materi['jawabansistempng'] != null)
+                                          Center(
+                                            child: Image.asset(
+                                              materi['jawabansistempng'],
+                                              fit: BoxFit.contain,
                                             ),
                                           ),
-                                          Align(
-                                            alignment: Alignment.topRight,
-                                            child: Row(
-                                              mainAxisSize: MainAxisSize.min,
-                                              children: List.generate(
-                                                materi['level'] ?? 1,
-                                                (i) => Container(
-                                                  margin: const EdgeInsets.all(
-                                                    4,
-                                                  ),
-                                                  width: 40,
-                                                  height: 40,
-                                                  decoration: const BoxDecoration(
-                                                    image: DecorationImage(
-                                                      image: AssetImage(
-                                                        'assets/images/level.png',
-                                                      ),
-                                                    ),
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ],
-                                      ),
+                                      ],
                                     ),
                                   ),
                                 );

@@ -53,6 +53,7 @@ class _AljabarQuizState extends State<AljabarQuiz> {
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
+                        fontSize: 30,
                       ),
                     ),
                     centerTitle: true,
@@ -97,11 +98,11 @@ class _AljabarQuizState extends State<AljabarQuiz> {
                                     padding: const EdgeInsets.all(16),
                                     height: 120,
                                     decoration: BoxDecoration(
-                                      color: Colors.black.withOpacity(0.6),
+                                      color: Colors.white.withOpacity(0.6),
                                       borderRadius: BorderRadius.circular(16),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: Colors.black.withOpacity(0.2),
+                                          color: Colors.white.withOpacity(0.2),
                                           blurRadius: 8,
                                           offset: const Offset(0, 4),
                                         ),
@@ -120,7 +121,7 @@ class _AljabarQuizState extends State<AljabarQuiz> {
                                             style: const TextStyle(
                                               fontSize: 18,
                                               fontWeight: FontWeight.bold,
-                                              color: Colors.white,
+                                              color: Colors.black,
                                             ),
                                           ),
                                         ),
@@ -132,8 +133,8 @@ class _AljabarQuizState extends State<AljabarQuiz> {
                                               materi['level'] ?? 1,
                                               (i) => Container(
                                                 margin: const EdgeInsets.all(4),
-                                                width: 40,
-                                                height: 40,
+                                                width: 35,
+                                                height: 35,
                                                 decoration: const BoxDecoration(
                                                   image: DecorationImage(
                                                     image: AssetImage(

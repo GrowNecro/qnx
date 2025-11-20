@@ -4,11 +4,16 @@ import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
+import 'package:flutter/services.dart';
 import '../widgets/alpha_video_player.dart';
 
 /// PngTransisiStageRoute — overlay-first mode
-/// Overlay (PNG animation) dimulai duluan.
-/// Stage (pageUnder) mulai berjalan setelah n frame overlay (default 1).
+/// - Bisa dipakai untuk:
+///   1) Intro: pageUnder = halaman baru (page tujuan), overlay animasi di atasnya.
+///   2) Outro (tirai di current page): pageUnder = SizedBox.shrink(),
+///      opaque = false, jadi yang kelihatan di bawah adalah halaman lama.
+///
+/// Stage (pageUnder) mulai dirender setelah N frame overlay (default 1).
 class PngTransisiStageRoute extends PageRoute<void> {
   final Widget pageUnder;
   final Uint8List? backgroundBytes;
@@ -19,13 +24,24 @@ class PngTransisiStageRoute extends PageRoute<void> {
   final int bufferSize;
   final int? targetDisplayWidth;
   final int? targetDisplayHeight;
-  final int
-  stageStartFrames; // berapa frame overlay sebelum stage mulai (default 1)
+  final VoidCallback? onTransitionFinished;
+
+  /// Berapa frame overlay sebelum stage mulai (default 1).
+  /// Untuk kasus outro (overlay-only), bisa di-set besar (misal 9999)
+  /// supaya stage tidak pernah dimulai.
+  final int stageStartFrames;
+
   final Duration initialDelay;
   final Duration endFrameDelay;
   final bool overlayFadeOut;
   final Duration overlayFadeDuration;
   final Duration initialFreeze;
+  final bool reverseFrames;
+
+  /// Jika true, route akan otomatis dipop ketika animasi selesai.
+  /// - Intro page: biasanya false (route ini adalah page utamanya).
+  /// - Outro overlay di current page: biasanya true (supaya await push(..) selesai).
+  final bool autoPopOnFinish;
 
   /// audio support
   final String? audioAsset;
@@ -52,23 +68,34 @@ class PngTransisiStageRoute extends PageRoute<void> {
     this.overlayFadeOut = true,
     this.overlayFadeDuration = const Duration(milliseconds: 240),
     this.initialFreeze = const Duration(milliseconds: 500),
+    this.reverseFrames = false,
+    this.autoPopOnFinish = false,
     this.audioAsset,
     this.audioLoop = true,
     this.initialAudioMuted = false,
     this.pageReadyFuture,
     this.pageReadyTimeout = const Duration(milliseconds: 800),
+    this.onTransitionFinished,
   });
 
   @override
   Duration get transitionDuration => Duration.zero;
+
   @override
   Duration get reverseTransitionDuration => Duration.zero;
+
   @override
   bool get maintainState => true;
+
+  /// Dibuat non-opaque supaya:
+  /// - Kalau dipakai sebagai overlay-only, page lama tetap kelihatan di bawah.
+  /// - Kalau dipakai sebagai intro, pageUnder sendiri menutupi area full.
   @override
-  bool get opaque => true;
+  bool get opaque => false;
+
   @override
   Color? get barrierColor => null;
+
   @override
   String? get barrierLabel => null;
 
@@ -82,9 +109,13 @@ class PngTransisiStageRoute extends PageRoute<void> {
       milliseconds: ((1000 / fps) * stageStartFrames).round(),
     );
 
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: _StageOverlayBody(
+    // Pastikan overlay benar-benar fullscreen:
+    // buang padding top/bottom dari MediaQuery (SafeArea, dsb).
+    return MediaQuery.removePadding(
+      context: context,
+      removeTop: true,
+      removeBottom: true,
+      child: _StageOverlayBody(
         pageUnder: pageUnder,
         backgroundBytes: backgroundBytes,
         pngPattern: pngPattern,
@@ -103,6 +134,9 @@ class PngTransisiStageRoute extends PageRoute<void> {
         audioAsset: audioAsset,
         audioLoop: audioLoop,
         initialAudioMuted: initialAudioMuted,
+        reverseFrames: reverseFrames,
+        autoPopOnFinish: autoPopOnFinish,
+        onTransitionFinished: onTransitionFinished,
       ),
     );
   }
@@ -118,12 +152,25 @@ class _StageOverlayBody extends StatefulWidget {
   final int bufferSize;
   final int? targetDisplayWidth;
   final int? targetDisplayHeight;
-  final Duration initialDelay; // delay before starting overlay (usually zero)
-  final Duration stageStartDelay; // when pageUnder should start (e.g. 500ms)
-  final Duration
-  endFrameDelay; // small wait after overlay finished before hiding
-  final Duration
-  initialFreeze; // kept for compatibility but no static-first-frame logic now
+  final VoidCallback? onTransitionFinished;
+
+  /// Delay sebelum mulai overlay (biasanya zero).
+  final Duration initialDelay;
+
+  /// Kapan pageUnder mulai dirender (relatif ke start overlay).
+  final Duration stageStartDelay;
+
+  /// Delay kecil setelah overlay selesai sebelum disembunyikan.
+  final Duration endFrameDelay;
+
+  /// Masih disimpan untuk kompatibilitas.
+  final Duration initialFreeze;
+
+  /// Kalau true, urutan frame dibalik (dipakai buat tirai/outro).
+  final bool reverseFrames;
+
+  /// Kalau true, route akan Auto-pop ketika animasi selesai.
+  final bool autoPopOnFinish;
 
   final Future<void>? pageReadyFuture;
   final Duration pageReadyTimeout;
@@ -152,6 +199,9 @@ class _StageOverlayBody extends StatefulWidget {
     this.audioAsset,
     this.audioLoop = true,
     this.initialAudioMuted = false,
+    this.reverseFrames = false,
+    this.autoPopOnFinish = false,
+    this.onTransitionFinished,
   });
 
   @override
@@ -188,6 +238,8 @@ class _StageOverlayBodyState extends State<_StageOverlayBody> {
   void initState() {
     super.initState();
 
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+
     _preloadReadyCompleter = Completer<void>();
     _stageDelayCompleter = Completer<void>();
 
@@ -213,11 +265,14 @@ class _StageOverlayBodyState extends State<_StageOverlayBody> {
       if (widget.stageStartDelay > Duration.zero) {
         Future.delayed(widget.stageStartDelay, () {
           if (!mounted) return;
-          if (!_stageDelayCompleter.isCompleted)
+          if (!_stageDelayCompleter.isCompleted) {
             _stageDelayCompleter.complete();
+          }
         });
       } else {
-        if (!_stageDelayCompleter.isCompleted) _stageDelayCompleter.complete();
+        if (!_stageDelayCompleter.isCompleted) {
+          _stageDelayCompleter.complete();
+        }
       }
 
       // wait for pageReadyFuture (with timeout) if provided
@@ -295,9 +350,24 @@ class _StageOverlayBodyState extends State<_StageOverlayBody> {
       } catch (_) {}
     }
 
+    // 1) panggil callback dulu untuk ganti halaman (kalau ada)
+    if (widget.onTransitionFinished != null) {
+      widget.onTransitionFinished!();
+    }
+
+    // 2) baru hilangkan overlay dari tree
     setState(() {
       _showOverlay = false;
     });
+
+    // 3) kalau masih mau auto-pop untuk kasus lain, boleh tetap:
+    if (widget.autoPopOnFinish) {
+      Future.microtask(() {
+        if (mounted) {
+          Navigator.of(context).pop();
+        }
+      });
+    }
   }
 
   // Called when AlphaVideoPlayer reports preload ready or first frame rendered
@@ -305,11 +375,15 @@ class _StageOverlayBodyState extends State<_StageOverlayBody> {
     if (!mounted) return;
     if (_preloadReady) return;
     _preloadReady = true;
-    if (!_preloadReadyCompleter.isCompleted) _preloadReadyCompleter.complete();
+    if (!_preloadReadyCompleter.isCompleted) {
+      _preloadReadyCompleter.complete();
+    }
   }
 
   @override
   void dispose() {
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    
     if (_audioController != null) {
       try {
         _audioController!.dispose();
@@ -350,57 +424,64 @@ class _StageOverlayBodyState extends State<_StageOverlayBody> {
       bufferSize: widget.bufferSize,
       targetDisplayWidth: widget.targetDisplayWidth,
       targetDisplayHeight: widget.targetDisplayHeight,
+      reverseFrames: widget.reverseFrames,
     );
 
     return Stack(
       fit: StackFit.expand,
       children: [
         // 1) pageUnder - instantiate & show only when _stageStarted && _pageReady
+        //
+        // - Intro (normal): pageUnder = halaman baru, stageStartFrames kecil.
+        // - Outro overlay-only: pageUnder bisa SizedBox.shrink() dan
+        //   stageStartFrames dibuat besar supaya tidak pernah muncul.
         if (_stageStarted && _pageReady)
           Positioned.fill(child: widget.pageUnder),
 
         // 2) overlay group (player)
-        Positioned.fill(
-          child: IgnorePointer(
-            // block interactions while overlay still "owns" the screen
-            ignoring: _stageStarted && _pageReady,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                // show the alpha player directly (no static first-frame)
-                Positioned.fill(child: alphaPlayer),
+        // ⬇️ hanya render overlay kalau _showOverlay = true
+        if (_showOverlay)
+          Positioned.fill(
+            child: IgnorePointer(
+              // ketika overlay aktif, semua input ditahan di sini
+              ignoring: false,
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  // alphaPlayer full screen
+                  Positioned.fill(child: alphaPlayer),
 
-                // optional audio control while overlay visible
-                if (_showOverlay && _audioAvailable)
-                  Positioned(
-                    top: 18,
-                    right: 12,
-                    child: SafeArea(
-                      minimum: const EdgeInsets.all(4),
-                      child: Material(
-                        color: Colors.black.withOpacity(0.35),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: IconButton(
-                          padding: const EdgeInsets.all(6),
-                          iconSize: 20,
-                          tooltip: _audioMuted ? 'Unmute' : 'Mute',
-                          icon: Icon(
-                            _audioMuted ? Icons.volume_off : Icons.volume_up,
-                            color: Colors.white,
+                  // optional audio control while overlay visible
+                  if (_audioAvailable)
+                    Positioned(
+                      top: 18,
+                      right: 12,
+                      child: SafeArea(
+                        minimum: const EdgeInsets.all(4),
+                        child: Material(
+                          color: Colors.black.withOpacity(0.35),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(6),
                           ),
-                          onPressed: _audioInitialized
-                              ? _toggleAudioMute
-                              : null,
+                          child: IconButton(
+                            padding: const EdgeInsets.all(6),
+                            iconSize: 20,
+                            tooltip: _audioMuted ? 'Unmute' : 'Mute',
+                            icon: Icon(
+                              _audioMuted ? Icons.volume_off : Icons.volume_up,
+                              color: Colors.white,
+                            ),
+                            onPressed: _audioInitialized
+                                ? _toggleAudioMute
+                                : null,
+                          ),
                         ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ),
-        ),
       ],
     );
   }

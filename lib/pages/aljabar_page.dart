@@ -35,7 +35,7 @@ class _AljabarPageState extends State<AljabarPage> {
           // Background image
           SizedBox.expand(
             child: Image.asset(
-              'assets/images/background.png', // ganti sesuai path gambar
+              'assets/images/background.png',
               fit: BoxFit.cover,
             ),
           ),
@@ -45,13 +45,14 @@ class _AljabarPageState extends State<AljabarPage> {
             child: Column(
               children: [
                 AppBar(
-                  backgroundColor: Colors.transparent, // transparan
+                  backgroundColor: Colors.transparent,
                   elevation: 0,
                   title: const Text(
-                    'Materi: Aljabar',
+                    'Materials - Algebra',
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
+                      fontSize: 30,
                     ),
                   ),
                   centerTitle: true,
@@ -75,22 +76,21 @@ class _AljabarPageState extends State<AljabarPage> {
                             context,
                             '/materi/video',
                             arguments: {
-                              'videoPath': materi['video'],
-                              'judullatihan': materi['judullatihan'],
+                              'videoPath': materi['video'] ?? '',
+                              'judulMateri': materi['judul'] ?? '',
+                              'judullatihan': materi['judullatihan'] ?? '',
                             },
                           );
                         },
                         child: Align(
                           alignment: Alignment.center,
                           child: Container(
-                            width: screenWidth * 0.95,
+                            width: screenWidth * 0.9,
                             margin: const EdgeInsets.only(bottom: 20),
                             padding: const EdgeInsets.all(16),
                             height: 120,
                             decoration: BoxDecoration(
-                              color: Colors.grey.shade200.withOpacity(
-                                0.8,
-                              ), // semi-transparent
+                              color: Colors.grey.shade200.withOpacity(0.75),
                               borderRadius: BorderRadius.circular(16),
                             ),
                             child: Stack(
@@ -101,9 +101,9 @@ class _AljabarPageState extends State<AljabarPage> {
                                     top: 10,
                                   ),
                                   child: Text(
-                                    materi['judul'],
+                                    materi['judul'] ?? 'Title not available',
                                     style: const TextStyle(
-                                      fontSize: 18,
+                                      fontSize: 20,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
@@ -113,11 +113,11 @@ class _AljabarPageState extends State<AljabarPage> {
                                   child: Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: List.generate(
-                                      materi['level'],
+                                      (materi['level'] ?? 1) as int,
                                       (i) => Container(
                                         margin: const EdgeInsets.all(4),
-                                        width: 40,
-                                        height: 40,
+                                        width: 35,
+                                        height: 35,
                                         decoration: const BoxDecoration(
                                           image: DecorationImage(
                                             image: AssetImage(

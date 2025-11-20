@@ -30,10 +30,11 @@ class UlasanPage extends StatelessWidget {
                   AppBar(
                     backgroundColor: Colors.transparent,
                     title: const Text(
-                      'ULASAN',
+                      'Reviews',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
+                        fontSize: 30,
                       ),
                     ),
                     centerTitle: true,
@@ -73,13 +74,13 @@ class UlasanPage extends StatelessWidget {
     double screenWidth,
   ) {
     return SizedBox(
-      width: screenWidth * 0.95, // 95% lebar layar
+      width: screenWidth * 0.9, // 90% lebar layar
       height: 120,
       child: ElevatedButton(
         onPressed: () => Navigator.pushNamed(context, route),
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.white.withOpacity(
-            0.9,
+            0.75,
           ), // biar sedikit transparan
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(15),
@@ -91,7 +92,7 @@ class UlasanPage extends StatelessWidget {
           style: const TextStyle(
             color: Colors.black,
             fontWeight: FontWeight.bold,
-            fontSize: 20,
+            fontSize: 30,
           ),
           textAlign: TextAlign.center,
         ),

@@ -30,10 +30,11 @@ class MateriPage extends StatelessWidget {
                   AppBar(
                     backgroundColor: Colors.transparent,
                     title: const Text(
-                      'MATERI',
+                      'Learning Materials',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
+                        fontSize: 30,
                       ),
                     ),
                     centerTitle: true,
@@ -73,13 +74,13 @@ class MateriPage extends StatelessWidget {
     double screenWidth,
   ) {
     return SizedBox(
-      width: screenWidth * 0.95, // 95% lebar layar
+      width: screenWidth * 0.9, // 90% lebar layar
       height: 120,
       child: ElevatedButton(
         onPressed: () => Navigator.pushNamed(context, route),
         style: ElevatedButton.styleFrom(
           backgroundColor: Colors.white.withOpacity(
-            0.9,
+            0.7,
             
           ), // biar sedikit transparan
           shape: RoundedRectangleBorder(
@@ -92,7 +93,7 @@ class MateriPage extends StatelessWidget {
           style: const TextStyle(
             color: Colors.black,
             fontWeight: FontWeight.bold,
-            fontSize: 20,
+            fontSize: 36,
           ),
           textAlign: TextAlign.center,
         ),

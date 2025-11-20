@@ -26,10 +26,11 @@ class QuizPage extends StatelessWidget {
                   AppBar(
                     backgroundColor: Colors.transparent,
                     title: const Text(
-                      'QUIZ',
+                      'Questions',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
+                        fontSize: 30,
                       ),
                     ),
                     centerTitle: true,
@@ -42,7 +43,7 @@ class QuizPage extends StatelessWidget {
                   const SizedBox(height: 30),
                   _menuButton(
                     context,
-                    'Aljabar',
+                    'Algebra',
                     '/quiz/aljabar',
                     screenWidth,
                   ),
@@ -69,12 +70,12 @@ class QuizPage extends StatelessWidget {
     double screenWidth,
   ) {
     return SizedBox(
-      width: screenWidth * 0.8, // 80% lebar layar
+      width: screenWidth * 0.9, // 90% lebar layar
       height: 120,
       child: ElevatedButton(
         onPressed: () => Navigator.pushNamed(context, route),
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.white,
+          backgroundColor: Colors.white.withOpacity(0.7),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(15),
           ),
@@ -85,7 +86,7 @@ class QuizPage extends StatelessWidget {
           style: const TextStyle(
             color: Colors.black,
             fontWeight: FontWeight.bold,
-            fontSize: 20,
+            fontSize: 30,
           ),
           textAlign: TextAlign.center,
         ),

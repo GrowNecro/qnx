@@ -5,10 +5,12 @@ import 'package:video_player/video_player.dart';
 import 'package:flutter/services.dart'
     show rootBundle, SystemChrome, SystemUiMode;
 import 'package:youtube_player_flutter/youtube_player_flutter.dart';
-import '../pages/aljabar_quiz_page.dart';
+import 'png_transisi_stage_route.dart';
+import 'aljabar_quiz_page.dart';
 
 class VideoPage extends StatefulWidget {
   final String videoPath; // could be asset path, http(s) mp4 or YouTube URL
+  final String judulMateri;
   final String judullatihan;
 
   /// Path asset gambar yang ingin ditampilkan ketika video selesai.
@@ -17,6 +19,7 @@ class VideoPage extends StatefulWidget {
   const VideoPage({
     super.key,
     required this.videoPath,
+    required this.judulMateri,
     required this.judullatihan,
     this.endBackgroundAsset = 'assets/images/background.png',
   });
@@ -193,8 +196,9 @@ class _VideoPageState extends State<VideoPage> {
       return;
     }
 
-    if (_videoController == null || !_videoController!.value.isInitialized)
+    if (_videoController == null || !_videoController!.value.isInitialized) {
       return;
+    }
 
     if (_videoController!.value.isPlaying) {
       _videoController!.pause();
@@ -209,18 +213,19 @@ class _VideoPageState extends State<VideoPage> {
   }
 
   Future<void> _goToLatihan(BuildContext context) async {
+    // 1. Pause video dulu
     if (_isYoutube) {
       try {
         _youtubeController?.pause();
-        _youtubeController?.seekTo(const Duration(seconds: 0));
       } catch (_) {}
     } else {
       try {
         _videoController?.pause();
-        _videoController?.seekTo(Duration.zero);
       } catch (_) {}
     }
 
+    // 2. Load materi.json dan cari latihan
+    Map<String, dynamic>? selected;
     try {
       final jsonString = await rootBundle.loadString('assets/materi.json');
       final List<dynamic> rawList = json.decode(jsonString);
@@ -229,36 +234,62 @@ class _VideoPageState extends State<VideoPage> {
           .whereType<Map<String, dynamic>>()
           .toList(growable: false);
 
-      final selected = materiList.firstWhere(
+      selected = materiList.firstWhere(
         (m) => m['judullatihan'] == widget.judullatihan,
         orElse: () => <String, dynamic>{},
       );
 
-      if (selected.isNotEmpty && selected['latihan'] != null) {
-        if (!mounted) return;
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => AljabarQuizPage(
-              judullatihan: widget.judullatihan,
-              latihan: selected['latihan'],
-            ),
-          ),
-        );
-      } else {
+      if (selected.isEmpty || selected['latihan'] == null) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Latihan tidak ditemukan di materi.json'),
           ),
         );
+        return;
       }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Error memuat materi: $e')));
+      return;
     }
+
+    if (!mounted) return;
+
+    // 3. Mainkan tirai OUTRO di atas VideoPage (current page)
+    await Navigator.of(context).push(
+      PngTransisiStageRoute(
+        pageUnder: const SizedBox.shrink(), // overlay-only
+        backgroundBytes: null,
+        pngPattern: 'assets/frames/intro/intro_%04d.png',
+        pngFrameCount: 28,
+        fps: 24,
+        loop: false,
+        bufferSize: 8,
+        targetDisplayWidth: null,
+        targetDisplayHeight: null,
+        reverseFrames: true, // main mundur → tirai nutup
+        stageStartFrames: 9999, // jangan pernah tampilkan pageUnder
+        autoPopOnFinish: true, // tirai selesai → overlay pop
+        endFrameDelay: const Duration(milliseconds: 0),
+      ),
+    );
+
+    if (!mounted) return;
+
+    // 4. Ganti ke halaman quiz TANPA transisi tambahan
+    Navigator.of(context).pushReplacement(
+      PageRouteBuilder(
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: Duration.zero,
+        pageBuilder: (_, __, ___) => AljabarQuizPage(
+          judullatihan: widget.judullatihan,
+          latihan: selected!['latihan'],
+        ),
+      ),
+    );
   }
 
   Widget _buildVideoContent(BoxConstraints constraints) {
@@ -334,124 +365,143 @@ class _VideoPageState extends State<VideoPage> {
   }
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: SafeArea(
-        child: Stack(
-          children: [
-            // Video Area
-            Positioned.fill(
-              child: GestureDetector(
-                onTap: _onCenterTapped,
-                child: _buildVideoContent(
-                  MediaQuery.of(context).size == Size.zero
-                      ? const BoxConstraints.expand()
-                      : BoxConstraints(
-                          maxWidth: MediaQuery.of(context).size.width,
-                          maxHeight: MediaQuery.of(context).size.height,
-                        ),
-                ),
+Widget build(BuildContext context) {
+    return Stack(
+      children: [
+        // 0) BACKGROUND FULLSCREEN DI LUAR SCAFFOLD
+        Positioned.fill(
+          child: Container(
+            decoration: const BoxDecoration(
+              image: DecorationImage(
+                image: AssetImage('assets/images/background.png'),
+                fit: BoxFit.cover,
               ),
             ),
-
-            // Top Bar
-            Positioned(
-              left: 0,
-              right: 0,
-              top: 0,
-              child: AppBar(
-                backgroundColor: Colors.black.withOpacity(0.35),
-                elevation: 0,
-                iconTheme: const IconThemeData(color: Colors.white),
-                title: Text(
-                  widget.judullatihan,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
-                ),
-                centerTitle: true,
-                leading: IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Colors.white),
-                  onPressed: () {
-                    SystemChrome.setEnabledSystemUIMode(
-                      SystemUiMode.edgeToEdge,
-                    );
-                    Navigator.pop(context);
-                  },
-                ),
-              ),
-            ),
-
-            // Tombol Play (hanya untuk native video)
-            if (!_isYoutube &&
-                _isInitialized &&
-                !_videoController!.value.isPlaying &&
-                !_showEndImage)
-              Center(
-                child: IconButton(
-                  iconSize: 96,
-                  color: Colors.white,
-                  icon: const Icon(Icons.play_circle_fill),
-                  onPressed: _onCenterTapped,
-                ),
-              ),
-
-            // Tombol Latihan
-            if (_showLatihanButton)
-              Positioned.fill(
-                child: Container(
-                  alignment: Alignment.bottomCenter,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 40,
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 6,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.45),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: const Text(
-                          'Siap untuk latihan?',
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      ),
-                      ElevatedButton(
-                        onPressed: () => _goToLatihan(context),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.orange,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 40,
-                            vertical: 14,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                        ),
-                        child: const Text(
-                          'Latihan',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-          ],
+          ),
         ),
-      ),
+
+        // 1) SCAFFOLD TRANSPARAN DI ATAS BACKGROUND
+        Scaffold(
+          backgroundColor:
+              Colors.transparent, // penting: biar gak nutupin background-nya
+          body: SafeArea(
+            child: Stack(
+              children: [
+                // Video Area
+                Positioned.fill(
+                  child: GestureDetector(
+                    onTap: _onCenterTapped,
+                    child: _buildVideoContent(
+                      MediaQuery.of(context).size == Size.zero
+                          ? const BoxConstraints.expand()
+                          : BoxConstraints(
+                              maxWidth: MediaQuery.of(context).size.width,
+                              maxHeight: MediaQuery.of(context).size.height,
+                            ),
+                    ),
+                  ),
+                ),
+
+                // Top Bar
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: 0,
+                  child: AppBar(
+                    backgroundColor: Colors.black.withOpacity(0.35),
+                    elevation: 0,
+                    iconTheme: const IconThemeData(color: Colors.white),
+                    title: Text(
+                      widget.judulMateri,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                        fontSize: 24,
+                      ),
+                    ),
+                    centerTitle: true,
+                    leading: IconButton(
+                      icon: const Icon(Icons.arrow_back, color: Colors.white),
+                      onPressed: () {
+                        SystemChrome.setEnabledSystemUIMode(
+                          SystemUiMode.edgeToEdge,
+                        );
+                        Navigator.pop(context);
+                      },
+                    ),
+                  ),
+                ),
+
+                // Tombol Play (hanya untuk native video)
+                if (!_isYoutube &&
+                    _isInitialized &&
+                    !_videoController!.value.isPlaying &&
+                    !_showEndImage)
+                  Center(
+                    child: IconButton(
+                      iconSize: 96,
+                      color: Colors.white,
+                      icon: const Icon(Icons.play_circle_fill),
+                      onPressed: _onCenterTapped,
+                    ),
+                  ),
+
+                // Tombol Latihan
+                if (_showLatihanButton)
+                  Positioned.fill(
+                    child: Container(
+                      alignment: Alignment.bottomCenter,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 40,
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 12,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.black.withOpacity(0.45),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: const Text(
+                              'Ready for the exercise?',
+                              style: TextStyle(color: Colors.white),
+                            ),
+                          ),
+                          ElevatedButton(
+                            onPressed: () => _goToLatihan(context),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.orange,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 40,
+                                vertical: 20,
+                              ),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                            child: const Text(
+                              'Exercise Now',
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
