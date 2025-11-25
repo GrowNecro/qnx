@@ -68,7 +68,7 @@ class _HomePageState extends State<HomePage> {
 
           // Optional overlay untuk memberikan efek gelap agar teks terbaca
           Positioned.fill(
-            child: Container(color: Colors.black.withOpacity(0.25)),
+            child: Container(color: Colors.black.withValues(alpha: 0.25)),
           ),
 
           // Konten (ikon + tombol)
@@ -113,7 +113,7 @@ class _HomePageState extends State<HomePage> {
       child: ElevatedButton(
         onPressed: () => Navigator.pushNamed(context, route),
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.white.withOpacity(0.7),
+          backgroundColor: Colors.white.withValues(alpha: 0.7),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(15),
           ),

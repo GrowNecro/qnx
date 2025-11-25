@@ -143,7 +143,7 @@ class _AljabarQuizPageState extends State<AljabarQuizPage> {
             offset: const Offset(0, -7),
             child: Text(
               match.group(2)!,
-              textScaleFactor: 0.7,
+              textScaler: const TextScaler.linear(0.7),
               style: const TextStyle(color: Colors.white),
             ),
           ),
@@ -221,6 +221,7 @@ class _AljabarQuizPageState extends State<AljabarQuizPage> {
     }
 
     if (currentMateri == null) {
+      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Materi tidak ditemukan')));
@@ -232,6 +233,7 @@ class _AljabarQuizPageState extends State<AljabarQuizPage> {
         : int.tryParse(currentMateri['id'].toString());
 
     if (currentId == null) {
+      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('ID materi tidak valid')));
@@ -277,6 +279,7 @@ class _AljabarQuizPageState extends State<AljabarQuizPage> {
         nextMateri['judullatihan']?.toString() ?? 'Latihan';
 
     // Pindah ke halaman video materi berikutnya via AppRoutes + transisi
+    if (!mounted) return;
     Navigator.pushReplacementNamed(
       context,
       '/materi/video',
@@ -336,11 +339,11 @@ class _AljabarQuizPageState extends State<AljabarQuizPage> {
                       height: screenHeight * 0.8,
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.black.withOpacity(0.5),
+                        color: Colors.black.withValues(alpha: 0.5),
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.25),
+                            color: Colors.black.withValues(alpha: 0.25),
                             blurRadius: 8,
                             offset: const Offset(0, 4),
                           ),
@@ -366,7 +369,7 @@ class _AljabarQuizPageState extends State<AljabarQuizPage> {
                           ),
                           const SizedBox(height: 12),
                           Expanded(
-                            child: _image == null
+                            child: _image == null && _controller.text.isEmpty
                                 ? const Center(
                                     child: Text(
                                       'Belum ada foto jawaban',
@@ -376,15 +379,47 @@ class _AljabarQuizPageState extends State<AljabarQuizPage> {
                                       ),
                                     ),
                                   )
-                                : GestureDetector(
-                                    onTap: _openFullImage,
-                                    child: ClipRRect(
-                                      borderRadius: BorderRadius.circular(12),
-                                      child: Image.file(
-                                        _image!,
-                                        fit: BoxFit.contain,
-                                      ),
-                                    ),
+                                : Stack(
+                                    children: [
+                                      // Gambar jawaban atau text area
+                                      if (_image != null)
+                                        Positioned.fill(
+                                          child: GestureDetector(
+                                            onTap: _openFullImage,
+                                            child: ClipRRect(
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              child: Image.file(
+                                                _image!,
+                                                fit: BoxFit.contain,
+                                              ),
+                                            ),
+                                          ),
+                                        )
+                                      else
+                                        const Center(
+                                          child: Text(
+                                            'Jawaban teks sudah disimpan',
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              color: Colors.white70,
+                                            ),
+                                          ),
+                                        ),
+                                      // Maskot di tengah jika ada jawaban (gambar atau teks)
+                                      if (_image != null ||
+                                          _controller.text.isNotEmpty)
+                                        Positioned(
+                                          right: 8,
+                                          bottom: 0,
+                                          child: Image.asset(
+                                            'assets/images/maskot.png',
+                                            width: 90,
+                                            height: 90,
+                                            fit: BoxFit.contain,
+                                          ),
+                                        ),
+                                    ],
                                   ),
                           ),
                           const SizedBox(height: 12),

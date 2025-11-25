@@ -75,7 +75,7 @@ class QuizPage extends StatelessWidget {
       child: ElevatedButton(
         onPressed: () => Navigator.pushNamed(context, route),
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.white.withOpacity(0.7),
+          backgroundColor: Colors.white.withValues(alpha: 0.7),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(15),
           ),

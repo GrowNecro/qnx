@@ -32,6 +32,7 @@ Future<void> playCurtainOutroAndNavigate(
   );
 
   // 2. Setelah overlay pop (tirai selesai), baru ganti page tanpa transisi
+  if (!context.mounted) return;
   Navigator.of(context).pushReplacementNamed(
     routeName,
     arguments: {

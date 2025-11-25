@@ -131,11 +131,15 @@ class _AljabarUlasanState extends State<AljabarUlasan> {
                                     margin: const EdgeInsets.only(bottom: 20),
                                     padding: const EdgeInsets.all(16),
                                     decoration: BoxDecoration(
-                                      color: Colors.black.withOpacity(0.65),
+                                      color: Colors.black.withValues(
+                                        alpha: 0.65,
+                                      ),
                                       borderRadius: BorderRadius.circular(16),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: Colors.black.withOpacity(0.4),
+                                          color: Colors.black.withValues(
+                                            alpha: 0.4,
+                                          ),
                                           blurRadius: 8,
                                           offset: const Offset(0, 4),
                                         ),

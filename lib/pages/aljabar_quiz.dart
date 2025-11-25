@@ -98,11 +98,15 @@ class _AljabarQuizState extends State<AljabarQuiz> {
                                     padding: const EdgeInsets.all(16),
                                     height: 120,
                                     decoration: BoxDecoration(
-                                      color: Colors.white.withOpacity(0.6),
+                                      color: Colors.white.withValues(
+                                        alpha: 0.6,
+                                      ),
                                       borderRadius: BorderRadius.circular(16),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: Colors.white.withOpacity(0.2),
+                                          color: Colors.white.withValues(
+                                            alpha: 0.2,
+                                          ),
                                           blurRadius: 8,
                                           offset: const Offset(0, 4),
                                         ),

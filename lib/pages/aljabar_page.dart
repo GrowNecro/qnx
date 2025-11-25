@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AljabarPage extends StatefulWidget {
   const AljabarPage({super.key});
@@ -11,11 +12,32 @@ class AljabarPage extends StatefulWidget {
 
 class _AljabarPageState extends State<AljabarPage> {
   List<dynamic> materiList = [];
+  // Map untuk menyimpan status quiz sudah dikerjakan atau belum per judullatihan
+  Map<String, bool> quizCompletedMap = {};
 
   Future<void> loadMateri() async {
     final data = await rootBundle.loadString('assets/materi.json');
+    final List<dynamic> list = json.decode(data);
+
+    // Load status quiz dari SharedPreferences
+    final prefs = await SharedPreferences.getInstance();
+    final Map<String, bool> completedMap = {};
+
+    for (final materi in list) {
+      final judullatihan = materi['judullatihan']?.toString() ?? '';
+      if (judullatihan.isNotEmpty) {
+        // Cek apakah ada jawaban tersimpan (gambar atau teks)
+        final imagePath = prefs.getString('userImagePath_$judullatihan');
+        final text = prefs.getString('userText_$judullatihan');
+        completedMap[judullatihan] =
+            (imagePath != null && imagePath.isNotEmpty) ||
+            (text != null && text.isNotEmpty);
+      }
+    }
+    
     setState(() {
-      materiList = json.decode(data);
+      materiList = list;
+      quizCompletedMap = completedMap;
     });
   }
 
@@ -69,6 +91,10 @@ class _AljabarPageState extends State<AljabarPage> {
                     itemCount: materiList.length,
                     itemBuilder: (context, index) {
                       final materi = materiList[index];
+                      final judullatihan =
+                          materi['judullatihan']?.toString() ?? '';
+                      final isCompleted =
+                          quizCompletedMap[judullatihan] ?? false;
 
                       return GestureDetector(
                         onTap: () {
@@ -90,11 +116,14 @@ class _AljabarPageState extends State<AljabarPage> {
                             padding: const EdgeInsets.all(16),
                             height: 120,
                             decoration: BoxDecoration(
-                              color: Colors.grey.shade200.withOpacity(0.75),
+                              color: Colors.grey.shade200.withValues(
+                                alpha: 0.75,
+                              ),
                               borderRadius: BorderRadius.circular(16),
                             ),
                             child: Stack(
                               children: [
+                                // Judul materi
                                 Padding(
                                   padding: const EdgeInsets.only(
                                     bottom: 10,
@@ -108,6 +137,7 @@ class _AljabarPageState extends State<AljabarPage> {
                                     ),
                                   ),
                                 ),
+                                // Level icons di kanan atas
                                 Align(
                                   alignment: Alignment.topRight,
                                   child: Row(
@@ -129,6 +159,17 @@ class _AljabarPageState extends State<AljabarPage> {
                                     ),
                                   ),
                                 ),
+                                // Maskot di tengah jika quiz sudah dikerjakan
+                                if (isCompleted)
+                                  Align(
+                                    alignment: Alignment.center,
+                                    child: Image.asset(
+                                      'assets/images/maskot.png',
+                                      width: 80,
+                                      height: 80,
+                                      fit: BoxFit.contain,
+                                    ),
+                                  ),
                               ],
                             ),
                           ),

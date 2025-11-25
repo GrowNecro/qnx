@@ -144,7 +144,7 @@ class AppRoutes {
 
     if (selectedTransisi == 'transisi1') {
       return PngTransisiStageRoute(
-        pageUnder: page!, // halaman tujuan
+        pageUnder: page, // halaman tujuan
         backgroundBytes: null,
         pngPattern: chosenPngPattern ?? 'assets/frames/intro/intro_%04d.png',
         pngFrameCount: chosenPngFrameCount,

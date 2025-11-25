@@ -79,8 +79,8 @@ class UlasanPage extends StatelessWidget {
       child: ElevatedButton(
         onPressed: () => Navigator.pushNamed(context, route),
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.white.withOpacity(
-            0.75,
+          backgroundColor: Colors.white.withValues(
+            alpha: 0.75,
           ), // biar sedikit transparan
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(15),

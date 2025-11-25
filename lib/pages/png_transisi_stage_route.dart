@@ -1,11 +1,19 @@
 // lib/pages/png_transisi_stage_route.dart
 
 import 'dart:async';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:flutter/services.dart';
 import '../widgets/alpha_video_player.dart';
+
+/// Style untuk fullscreen immersive (status bar & nav bar transparan)
+const _kFullscreenOverlayStyle = SystemUiOverlayStyle(
+  statusBarColor: Colors.transparent,
+  statusBarIconBrightness: Brightness.light,
+  systemNavigationBarColor: Colors.transparent,
+  systemNavigationBarIconBrightness: Brightness.light,
+  systemNavigationBarContrastEnforced: false,
+);
 
 /// PngTransisiStageRoute — overlay-first mode
 /// - Bisa dipakai untuk:
@@ -110,11 +118,13 @@ class PngTransisiStageRoute extends PageRoute<void> {
     );
 
     // Pastikan overlay benar-benar fullscreen:
-    // buang padding top/bottom dari MediaQuery (SafeArea, dsb).
+    // buang semua padding dari MediaQuery (SafeArea, status bar, nav bar, dll).
     return MediaQuery.removePadding(
       context: context,
       removeTop: true,
       removeBottom: true,
+      removeLeft: true,
+      removeRight: true,
       child: _StageOverlayBody(
         pageUnder: pageUnder,
         backgroundBytes: backgroundBytes,
@@ -238,7 +248,16 @@ class _StageOverlayBodyState extends State<_StageOverlayBody> {
   void initState() {
     super.initState();
 
+    // Fullscreen immersive - sembunyikan status bar & navigation bar
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+    SystemChrome.setSystemUIOverlayStyle(
+      const SystemUiOverlayStyle(
+        statusBarColor: Colors.transparent,
+        systemNavigationBarColor: Colors.transparent,
+        statusBarIconBrightness: Brightness.light,
+        systemNavigationBarIconBrightness: Brightness.light,
+      ),
+    );
 
     _preloadReadyCompleter = Completer<void>();
     _stageDelayCompleter = Completer<void>();
@@ -427,62 +446,66 @@ class _StageOverlayBodyState extends State<_StageOverlayBody> {
       reverseFrames: widget.reverseFrames,
     );
 
-    return Stack(
-      fit: StackFit.expand,
-      children: [
-        // 1) pageUnder - instantiate & show only when _stageStarted && _pageReady
-        //
-        // - Intro (normal): pageUnder = halaman baru, stageStartFrames kecil.
-        // - Outro overlay-only: pageUnder bisa SizedBox.shrink() dan
-        //   stageStartFrames dibuat besar supaya tidak pernah muncul.
-        if (_stageStarted && _pageReady)
-          Positioned.fill(child: widget.pageUnder),
+    // Fullscreen dengan Scaffold yang extend ke belakang status bar
+    return Scaffold(
+      backgroundColor: Colors.black,
+      extendBody: true,
+      extendBodyBehindAppBar: true,
+      body: AnnotatedRegion<SystemUiOverlayStyle>(
+        value: _kFullscreenOverlayStyle,
+        child: SizedBox.expand(
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              // 1) pageUnder - instantiate & show only when _stageStarted && _pageReady
+              if (_stageStarted && _pageReady)
+                Positioned.fill(child: widget.pageUnder),
 
-        // 2) overlay group (player)
-        // ⬇️ hanya render overlay kalau _showOverlay = true
-        if (_showOverlay)
-          Positioned.fill(
-            child: IgnorePointer(
-              // ketika overlay aktif, semua input ditahan di sini
-              ignoring: false,
-              child: Stack(
-                fit: StackFit.expand,
-                children: [
-                  // alphaPlayer full screen
-                  Positioned.fill(child: alphaPlayer),
+              // 2) overlay group (player)
+              if (_showOverlay)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    ignoring: false,
+                    child: Stack(
+                      fit: StackFit.expand,
+                      children: [
+                        // alphaPlayer full screen
+                        Positioned.fill(child: alphaPlayer),
 
-                  // optional audio control while overlay visible
-                  if (_audioAvailable)
-                    Positioned(
-                      top: 18,
-                      right: 12,
-                      child: SafeArea(
-                        minimum: const EdgeInsets.all(4),
-                        child: Material(
-                          color: Colors.black.withOpacity(0.35),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: IconButton(
-                            padding: const EdgeInsets.all(6),
-                            iconSize: 20,
-                            tooltip: _audioMuted ? 'Unmute' : 'Mute',
-                            icon: Icon(
-                              _audioMuted ? Icons.volume_off : Icons.volume_up,
-                              color: Colors.white,
+                        // optional audio control while overlay visible
+                        if (_audioAvailable)
+                          Positioned(
+                            top: 18,
+                            right: 12,
+                            child: Material(
+                              color: Colors.black.withValues(alpha: 0.35),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: IconButton(
+                                padding: const EdgeInsets.all(6),
+                                iconSize: 20,
+                                tooltip: _audioMuted ? 'Unmute' : 'Mute',
+                                icon: Icon(
+                                  _audioMuted
+                                      ? Icons.volume_off
+                                      : Icons.volume_up,
+                                  color: Colors.white,
+                                ),
+                                onPressed: _audioInitialized
+                                    ? _toggleAudioMute
+                                    : null,
+                              ),
                             ),
-                            onPressed: _audioInitialized
-                                ? _toggleAudioMute
-                                : null,
                           ),
-                        ),
-                      ),
+                      ],
                     ),
-                ],
-              ),
-            ),
+                  ),
+                ),
+            ],
           ),
-      ],
+        ),
+      ),
     );
   }
 }
