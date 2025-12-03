@@ -1,4 +1,4 @@
-package com.grownecro.qnx
+package com.example.qnx
 
 import android.os.Build
 import android.os.Bundle

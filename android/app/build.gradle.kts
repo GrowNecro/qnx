@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.grownecro.qnx"
+    namespace = "com.example.qnx"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -20,7 +20,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.grownecro.qnx"
+        applicationId = "com.example.qnx"
         minSdk = flutter.minSdkVersion  // Support BlueStacks & older devices
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
