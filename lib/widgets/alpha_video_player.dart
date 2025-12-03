@@ -22,9 +22,9 @@ class AlphaVideoPlayer extends StatefulWidget {
   final int? targetDisplayWidth;
   final int? targetDisplayHeight;
   final VoidCallback? onFirstFrameRendered;
-
-  /// kalau true, urutan frame dibalik (logical 0..N-1 → fisik N-1..0)
   final bool reverseFrames;
+  final VoidCallback? onEnteringFinalPhase;
+  final int finalPhaseFrameCount;
 
   // Preload behaviour
   final int initialPreloadFrames;
@@ -49,19 +49,29 @@ class AlphaVideoPlayer extends StatefulWidget {
     this.initialPreloadFrames = 24, // default 24
     this.loadRestAfterPreload = true, // default true
     this.reverseFrames = false,
+    this.onEnteringFinalPhase,
+    this.finalPhaseFrameCount = 10,
   });
 
   @override
   State<AlphaVideoPlayer> createState() => _AlphaVideoPlayerState();
 }
 
+/// Global cache untuk menyimpan frame yang sudah diload.
+/// Key: pngPattern, Value: Set of loaded frame indices.
+/// Frame yang sudah diload sekali akan tetap tersedia sepanjang app berjalan.
+final Map<String, Set<int>> _globalFrameCache = {};
+
 class _AlphaVideoPlayerState extends State<AlphaVideoPlayer> {
   Timer? _timer;
+  int _currentFrame = 0;
+  bool _finalPhaseNotified = false;
 
-  /// index logical 0..pngFrameCount-1 (selalu naik)
-  int _logicalFrame = 0;
-
-  final Set<int> _cachedFrames = <int>{};
+  /// Get or create cached frames set for current pattern
+  Set<int> get _cachedFrames {
+    final key = widget.pngPattern ?? '';
+    return _globalFrameCache.putIfAbsent(key, () => <int>{});
+  }
 
   // tracking preload
   int _preloadedCount = 0;
@@ -85,12 +95,13 @@ class _AlphaVideoPlayerState extends State<AlphaVideoPlayer> {
         oldWidget.webmAsset != widget.webmAsset ||
         oldWidget.reverseFrames != widget.reverseFrames) {
       _stopPlayback();
-      _logicalFrame = 0;
-      _cachedFrames.clear();
-      _preloadedCount = 0;
-      _firstFrameNotified = false;
-      _preloadNotified = false;
+      _currentFrame = 0;
+      // Tidak clear cache karena frame yang sudah diload tetap tersedia
+      _preloadedCount = _cachedFrames.length; // count existing cached frames
+      _firstFrameNotified = _cachedFrames.contains(0);
+      _preloadNotified = _cachedFrames.length >= widget.initialPreloadFrames;
       _loadingRemainingInBackground = false;
+      _finalPhaseNotified = false;
       _startPlayback();
     }
   }
@@ -101,24 +112,26 @@ class _AlphaVideoPlayerState extends State<AlphaVideoPlayer> {
     super.dispose();
   }
 
-  /// mapping logical index → index frame fisik
-  int _displayIndexForLogical(int logical) {
-    logical = logical.clamp(0, widget.pngFrameCount - 1);
-    if (!widget.reverseFrames) return logical;
-    return widget.pngFrameCount - 1 - logical;
+  int _getDisplayIndex(int logicalFrame) {
+    logicalFrame = logicalFrame.clamp(0, widget.pngFrameCount - 1);
+    if (!widget.reverseFrames) return logicalFrame;
+    return widget.pngFrameCount - 1 - logicalFrame;
   }
 
   void _startPlayback() {
     if (widget.pngPattern != null &&
         widget.pngFrameCount > 0 &&
         !widget.forceUseWebm) {
+      // if initialPreloadFrames > 0, preload first chunk before starting timer/playback
       final toPreload = widget.initialPreloadFrames.clamp(
         1,
         widget.pngFrameCount,
       );
       if (toPreload > 0) {
         _preloadInitialFrames(toPreload).then((_) {
+          // after preload chunk ready, start playback loop
           _playPngSequence();
+          // optionally kick off background loading of remaining frames
           if (widget.loadRestAfterPreload) {
             _loadRemainingInBackground(toPreload + 1);
           }
@@ -138,26 +151,19 @@ class _AlphaVideoPlayerState extends State<AlphaVideoPlayer> {
   }
 
   Future<void> _preloadInitialFrames(int toPreload) async {
-    final int firstLogical = 0;
-    final int firstDisplay = _displayIndexForLogical(firstLogical);
-
-    for (int logical = 0; logical < toPreload; logical++) {
+    for (int i = 0; i < toPreload; i++) {
       if (!mounted) return;
-
-      final int displayIndex = _displayIndexForLogical(logical);
-      if (!_cachedFrames.contains(displayIndex)) {
-        await _prefetchFrame(displayIndex);
+      if (!_cachedFrames.contains(i)) {
+        await _prefetchFrame(i);
       }
-
-      // first frame (sesuai arah) ready
-      if (!_firstFrameNotified && _cachedFrames.contains(firstDisplay)) {
+      // notify first frame when frame 0 is ready
+      if (i == 0 && !_firstFrameNotified && _cachedFrames.contains(0)) {
         _firstFrameNotified = true;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) widget.onFirstFrameRendered?.call();
         });
       }
     }
-
     _preloadNotified = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) widget.onPreloadReady?.call();
@@ -178,6 +184,7 @@ class _AlphaVideoPlayerState extends State<AlphaVideoPlayer> {
         try {
           await _prefetchFrame(idx);
         } catch (_) {}
+        // small throttle to avoid hogging I/O
         await Future.delayed(const Duration(milliseconds: 4));
       }
     }
@@ -187,19 +194,20 @@ class _AlphaVideoPlayerState extends State<AlphaVideoPlayer> {
   void _playPngSequence() {
     _stopPlayback();
     final frameDurationMs = (1000 / (widget.fps > 0 ? widget.fps : 24)).round();
-
-    _logicalFrame = 0;
-
-    // buffer di sekitar frame pertama (display index)
-    _ensureBufferedAround(_displayIndexForLogical(_logicalFrame));
+    _currentFrame = 0;
+    _finalPhaseNotified = false;
+    // ensure buffer around first frame
+    _ensureBufferedAround(_currentFrame);
 
     _timer = Timer.periodic(Duration(milliseconds: frameDurationMs), (t) async {
       if (!mounted) return;
 
-      _logicalFrame++;
-      if (_logicalFrame >= widget.pngFrameCount) {
+      // advance
+      _currentFrame++;
+      if (_currentFrame >= widget.pngFrameCount) {
         if (widget.loop) {
-          _logicalFrame = 0;
+          _currentFrame = 0;
+          _finalPhaseNotified = false;
         } else {
           _stopPlayback();
           widget.onFinished?.call();
@@ -207,56 +215,53 @@ class _AlphaVideoPlayerState extends State<AlphaVideoPlayer> {
         }
       }
 
-      final displayIndex = _displayIndexForLogical(_logicalFrame);
-      _ensureBufferedAround(displayIndex);
+      // Check final phase
+      final remaining = widget.pngFrameCount - _currentFrame - 1;
+      if (!_finalPhaseNotified && remaining < widget.finalPhaseFrameCount) {
+        _finalPhaseNotified = true;
+        widget.onEnteringFinalPhase?.call();
+      }
 
-      setState(() {});
+      // maintain buffer
+      _ensureBufferedAround(_currentFrame);
+
+      setState(() {}); // update displayed frame
     });
   }
 
-  void _ensureBufferedAround(int displayIndex) {
+  void _ensureBufferedAround(int index) {
     if (widget.pngPattern == null) return;
     final int buffer = widget.bufferSize.clamp(2, 128);
+    final int end = (index + buffer).clamp(0, widget.pngFrameCount - 1);
 
-    final int start = (displayIndex - 2).clamp(0, widget.pngFrameCount - 1);
-    final int end = (displayIndex + buffer).clamp(0, widget.pngFrameCount - 1);
-
-    for (int i = start; i <= end; i++) {
+    // Prefetch frames ahead - no eviction, keep all in cache
+    for (int i = index; i <= end; i++) {
       if (!_cachedFrames.contains(i)) {
         _prefetchFrame(i);
       }
     }
-
-    final keepStart = (displayIndex - 4).clamp(0, widget.pngFrameCount - 1);
-    final keepEnd = (displayIndex + buffer).clamp(0, widget.pngFrameCount - 1);
-    final toEvict = _cachedFrames
-        .where((f) => f < keepStart || f > keepEnd)
-        .toList();
-    for (final f in toEvict) {
-      _evictFrame(f);
-    }
+    // Tidak ada eviction - semua frame yang sudah diload tetap di memory
   }
 
   Future<void> _prefetchFrame(int frameIndex) async {
     if (!mounted) return;
     try {
-      final path = _formatFramePath(frameIndex);
+      final displayIndex = _getDisplayIndex(frameIndex);
+      final path = _formatFramePath(displayIndex);
       final ImageProvider provider = _resizeIfNeeded(AssetImage(path));
       await precacheImage(provider, context);
       _cachedFrames.add(frameIndex);
       _preloadedCount++;
 
-      final int firstDisplay = _displayIndexForLogical(
-        0,
-      ); // frame pertama sesuai arah
-
-      if (frameIndex == firstDisplay && !_firstFrameNotified) {
+      // if this is the first frame, notify immediate first-frame-rendered
+      if (frameIndex == 0 && !_firstFrameNotified) {
         _firstFrameNotified = true;
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) widget.onFirstFrameRendered?.call();
         });
       }
 
+      // if we've reached initialPreloadFrames threshold, notify preload ready
       if (!_preloadNotified &&
           widget.initialPreloadFrames > 0 &&
           _preloadedCount >= widget.initialPreloadFrames) {
@@ -266,17 +271,8 @@ class _AlphaVideoPlayerState extends State<AlphaVideoPlayer> {
         });
       }
     } catch (_) {
-      // ignore
+      // ignore frame load errors
     }
-  }
-
-  void _evictFrame(int frameIndex) {
-    final path = _formatFramePath(frameIndex);
-    try {
-      final provider = _resizeIfNeeded(AssetImage(path));
-      imageCache.evict(provider);
-    } catch (_) {}
-    _cachedFrames.remove(frameIndex);
   }
 
   ImageProvider _resizeIfNeeded(ImageProvider base) {
@@ -298,6 +294,12 @@ class _AlphaVideoPlayerState extends State<AlphaVideoPlayer> {
   void _stopPlayback() {
     _timer?.cancel();
     _timer = null;
+    // we purposely don't evict all cached frames here to allow reuse across route rebuilds;
+    // if you want to free, uncomment the next lines:
+    // for (final f in _cachedFrames) {
+    //   _evictFrame(f);
+    // }
+    // _cachedFrames.clear();
   }
 
   void _simulateVideoPlayback() {
@@ -339,14 +341,17 @@ class _AlphaVideoPlayerState extends State<AlphaVideoPlayer> {
 
   @override
   Widget build(BuildContext context) {
+    // PNG sequence path: render current PNG frame
     if (widget.pngPattern != null &&
         widget.pngFrameCount > 0 &&
         !widget.forceUseWebm) {
-      final logical = _logicalFrame.clamp(0, widget.pngFrameCount - 1);
-      final display = _displayIndexForLogical(logical);
-      final path = _formatFramePath(display);
+      final idx = _getDisplayIndex(
+        _currentFrame.clamp(0, widget.pngFrameCount - 1),
+      );
+      final path = _formatFramePath(idx);
       final provider = _resizeIfNeeded(AssetImage(path));
 
+      // Fill available area so transparent parts reveal the background under this widget
       return SizedBox.expand(
         child: Image(
           image: provider,
@@ -357,6 +362,7 @@ class _AlphaVideoPlayerState extends State<AlphaVideoPlayer> {
       );
     }
 
+    // WebM fallback (if provided)
     if (widget.webmAsset.isNotEmpty) {
       return Center(
         child: Column(
@@ -379,6 +385,7 @@ class _AlphaVideoPlayerState extends State<AlphaVideoPlayer> {
       );
     }
 
+    // Nothing to show
     return const SizedBox.shrink();
   }
 }

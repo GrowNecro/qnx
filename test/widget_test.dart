@@ -1,30 +1,34 @@
-// This is a basic Flutter widget test.
+// Main widget tests for QNX app
 //
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
+// This file exports all unit and widget tests for the QNX learning app.
+// Run all tests with: flutter test
 
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:qnx/main.dart';
+// Import utility tests
+import 'utils/progress_tracker_test.dart' as progress_tracker_tests;
+import 'utils/language_manager_test.dart' as language_manager_tests;
+import 'utils/materi_localizer_test.dart' as materi_localizer_tests;
+import 'utils/app_utils_test.dart' as app_utils_tests;
+import 'utils/frame_preloader_test.dart' as frame_preloader_tests;
+import 'utils/theme_manager_test.dart' as theme_manager_tests;
+
+// Import routes tests
+import 'routes/app_routes_test.dart' as app_routes_tests;
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  group('QNX App Tests', () {
+    group('Utils', () {
+      progress_tracker_tests.main();
+      language_manager_tests.main();
+      materi_localizer_tests.main();
+      app_utils_tests.main();
+      frame_preloader_tests.main();
+      theme_manager_tests.main();
+    });
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
-
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
-
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    group('Routes', () {
+      app_routes_tests.main();
+    });
   });
 }

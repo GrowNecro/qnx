@@ -44,6 +44,11 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
+# Signing keys - JANGAN COMMIT!
+*.jks
+*.keystore
+android/key.properties
+
 # ignore everything under assets
 /assets/**
 

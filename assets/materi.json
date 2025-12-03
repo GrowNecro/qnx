@@ -1,97 +1,193 @@
 [
   {
     "id": 1,
-    "judul": "The Seafarer from India",
+    "judul": {
+      "en": "The Seafarer from India",
+      "id": "Pelaut dari India"
+    },
     "level": 1,
     "video": "https://youtube.com/shorts/OV8y_04RHTA",
-    "judullatihan": "Exponent Practice",
-    "latihan": "Aji Saka prepared a ginger mixture to confront Prabu Dewata Cengkar. He carried an amount of ginger that was 3 times the amount Cengkar had, then added 10 more pieces. If Cengkar has x pieces of ginger, and Aji Saka has y pieces, which equation correctly represents the situation?",
-    "jawabansistempng": "assets/images/image_quiz_answer_1.png",
-    "jawabansistemteks": "y = 3x + 10",
+    "judullatihan": {
+      "en": "Constructing Linear Equations",
+      "id": "Menyusun Persamaan Linear"
+    },
+    "latihan": {
+      "en": "Aji Saka prepared a ginger mixture to confront Prabu Dewata Cengkar. He carried an amount of ginger that was 3 times the amount Cengkar had, then added 10 more pieces. If Cengkar has x pieces of ginger, and Aji Saka has y pieces, which equation correctly represents the situation?",
+      "id": "Aji Saka menyiapkan ramuan jahe untuk menghadapi Prabu Dewata Cengkar. Ia membawa jahe sebanyak 3 kali lipat dari yang dimiliki Cengkar, lalu menambahkan 10 potong lagi. Jika Cengkar memiliki x potong jahe, dan Aji Saka memiliki y potong, persamaan mana yang benar mewakili situasi tersebut?"
+    },
+    "jawabansistempng": "assets/images/quiz_1.png",
+    "jawabansistemteks": {
+      "id": "Jawaban:\ny = 3x + 10",
+      "en": "Answer:\ny = 3x + 10"
+    },
     "jawabanuserpng": "",
     "jawabanuser": ""
   },
   {
     "id": 2,
-    "judul": "Guardian of the Majeti Heirloom",
+    "judul": {
+      "en": "Guardian of the Majeti Heirloom",
+      "id": "Penjaga Pusaka Majeti"
+    },
     "level": 1,
     "video": "https://youtube.com/shorts/Ib2CIfRWqWE",
-    "judullatihan": "Root Practice",
-    "latihan": "Before going to Java Island, Aji Saka told Sembada to stay on the island. Aji Saka had traveled x km. The distance between Majeti Island and Java Island is 15 km, which is equal to 3 times Dora's journey. What is the value of x?",
-    "jawabansistempng": "assets/images/image_quiz_answer_2.png",
-    "jawabansistemteks": "15 = 3x → x = 5",
+    "judullatihan": {
+      "en": "Finding Variable Values",
+      "id": "Mencari Nilai Variabel"
+    },
+    "latihan": {
+      "en": "Before going to Java Island, Aji Saka told Sembada to stay on the island. Aji Saka had traveled x km. The distance between Majeti Island and Java Island is 15 km, which is equal to 3 times Dora's journey. What is the value of x?",
+      "id": "Sebelum pergi ke Pulau Jawa, Aji Saka menyuruh Sembada untuk tetap di pulau. Aji Saka telah menempuh perjalanan x km. Jarak antara Pulau Majeti dan Pulau Jawa adalah 15 km, yang sama dengan 3 kali perjalanan Dora. Berapa nilai x?"
+    },
+    "jawabansistempng": "assets/images/quiz_2.png",
+    "jawabansistemteks": {
+      "id": "Jawaban:\n15 = 3x\nx = 15/3 = 5\nJarak yang ditempuh Dora adalah 5 km.",
+      "en": "Answer:\n15 = 3x\nx = 15/3 = 5\nThe distance Dora traveled was 5 km."
+    },
     "jawabanuserpng": "",
     "jawabanuser": ""
   },
   {
     "id": 3,
-    "judul": "Arrival in Medang Kamulan",
+    "judul": {
+      "en": "Arrival in Medang Kamulan",
+      "id": "Tiba di Medang Kamulan"
+    },
     "level": 1,
     "video": "https://youtube.com/shorts/yRp7kTXlW-s",
-    "judullatihan": "Fraction Practice",
-    "latihan": "A mother dropped some mangoes. Soldier A took one-fourth of them and added 3 more. Soldier B took 6 mangoes. If the number of mangoes taken equals the number that fell, how many mangoes originally fell?",
-    "jawabansistempng": "assets/images/image_quiz_answer_3.png",
-    "jawabansistemteks": "x = 1/4x + 9 → x = 12",
+    "judullatihan": {
+      "en": "Equations with Fractions",
+      "id": "Persamaan dengan Pecahan"
+    },
+    "latihan": {
+      "en": "A mother dropped some mangoes. Soldier A took one-fourth of them and added 3 more. Soldier B took 6 mangoes. If the number of mangoes taken equals the number that fell, how many mangoes originally fell?",
+      "id": "Seorang ibu menjatuhkan beberapa mangga. Prajurit A mengambil seperempat dari mangga tersebut dan menambahkan 3 lagi. Prajurit B mengambil 6 mangga. Jika jumlah mangga yang diambil sama dengan jumlah yang jatuh, berapa mangga yang awalnya jatuh?"
+    },
+    "jawabansistempng": "assets/images/quiz_3.png",
+    "jawabansistemteks": {
+      "id": "Jawaban:\nx = ¼x + 9\nx − ¼x = 9\n¾x = 9\n3x = 36\nx = 12\nMangga yang jatuh adalah 12 buah.",
+      "en": "Answer:\nx = ¼x + 9\nx − ¼x = 9\n¾x = 9\n3x = 36\nx = 12\nA total of 12 mangoes fell."
+    },
     "jawabanuserpng": "",
     "jawabanuser": ""
   },
   {
     "id": 4,
-    "judul": "The Lament of the People",
+    "judul": {
+      "en": "The Lament of the People",
+      "id": "Ratapan Rakyat"
+    },
     "level": 2,
     "video": "https://youtube.com/shorts/NdVIIULdTeA",
-    "judullatihan": "Distance Practice",
-    "latihan": "Aji Saka stood at a point. The tree was 110 m away; the residence was 140 m away. What is the distance between the tree and the residence?",
-    "jawabansistempng": "assets/images/image_quiz_answer_4.png",
-    "jawabansistemteks": "140 − 110 = 30 m",
+    "judullatihan": {
+      "en": "Calculating Distance Difference",
+      "id": "Menghitung Selisih Jarak"
+    },
+    "latihan": {
+      "en": "Aji Saka stood at a point. The tree was 110 m away; the residence was 140 m away. What is the distance between the tree and the residence?",
+      "id": "Aji Saka berdiri di suatu titik. Pohon berada 110 m jauhnya; kediaman berada 140 m jauhnya. Berapa jarak antara pohon dan kediaman?"
+    },
+    "jawabansistempng": "assets/images/quiz_4.png",
+    "jawabansistemteks": {
+      "id": "Jawaban:\nJarak antara pohon dan kediaman:\n140 − 110 = 30 m",
+      "en": "Answer:\nDistance between tree and residence:\n140 − 110 = 30 m"
+    },
     "jawabanuserpng": "",
     "jawabanuser": ""
   },
   {
     "id": 5,
-    "judul": "The Turban Challenge",
+    "judul": {
+      "en": "The Turban Challenge",
+      "id": "Tantangan Surban"
+    },
     "level": 2,
     "video": "https://youtube.com/shorts/XqAWgZvq3wo",
-    "judullatihan": "Equation Practice",
-    "latihan": "Aji Saka opened his turban. One side measured 5 m, and the total turban length was 5x m. Dewata Cengkar believed the cloth was only 500 m long, but it exceeded 500 m. What is the value of x?",
-    "jawabansistempng": "assets/images/image_quiz_answer_5.png",
-    "jawabansistemteks": "5x > 500 → x > 100",
+    "judullatihan": {
+      "en": "Linear Inequalities",
+      "id": "Pertidaksamaan Linear"
+    },
+    "latihan": {
+      "en": "Aji Saka opened his turban. One side measured 5 m, and the total turban length was 5x m. Dewata Cengkar believed the cloth was only 500 m long, but it exceeded 500 m. What is the value of x?",
+      "id": "Aji Saka membuka surbannya. Satu sisi berukuran 5 m, dan total panjang surban adalah 5x m. Dewata Cengkar percaya kain itu hanya sepanjang 500 m, tetapi ternyata melebihi 500 m. Berapa nilai x?"
+    },
+    "jawabansistempng": "assets/images/quiz_5.png",
+    "jawabansistemteks": {
+      "id": "Jawaban:\n5x > 500\nx > 100",
+      "en": "Answer:\n5x > 500\nx > 100"
+    },
     "jawabanuserpng": "",
     "jawabanuser": ""
   },
   {
     "id": 6,
-    "judul": "The Summoning Order",
+    "judul": {
+      "en": "The Summoning Order",
+      "id": "Perintah Pemanggilan"
+    },
     "level": 2,
     "video": "https://youtube.com/shorts/NwKMEeltsMc",
-    "judullatihan": "Simple Algebra Practice",
-    "latihan": "Aji Saka was tested with the equation: 4x = 2(x+3). What is the value of x?",
-    "jawabansistempng": "assets/images/image_quiz_answer_6.png",
-    "jawabansistemteks": "4x = 2(x+3) → x = 3",
+    "judullatihan": {
+      "en": "Distributive Property Equations",
+      "id": "Persamaan Sifat Distributif"
+    },
+    "latihan": {
+      "en": "Aji Saka was tested with the equation: 4x = 2(x+3). What is the value of x?",
+      "id": "Aji Saka diuji dengan persamaan: 4x = 2(x+3). Berapa nilai x?"
+    },
+    "jawabansistempng": "assets/images/quiz_6.png",
+    "jawabansistemteks": {
+      "id": "Jawaban:\n4x = 2(x+3)\n4x = 2x + 6\n4x − 2x = 6\n2x = 6\nx = 3",
+      "en": "Answer:\n4x = 2(x+3)\n4x = 2x + 6\n4x − 2x = 6\n2x = 6\nx = 3"
+    },
     "jawabanuserpng": "",
     "jawabanuser": ""
   },
   {
     "id": 7,
-    "judul": "Grief on Majeti Island",
+    "judul": {
+      "en": "Grief on Majeti Island",
+      "id": "Duka di Pulau Majeti"
+    },
     "level": 3,
     "video": "https://youtube.com/shorts/0tpNIjdDlDU",
-    "judullatihan": "Linear Equation Practice",
-    "latihan": "Aji Saka traveled (4x+10) km and still had (2x−6) km left. The total trip was 52 km. Find x and the remaining distance.",
-    "jawabansistempng": "assets/images/image_quiz_answer_7.png",
-    "jawabansistemteks": "52 = (4x+10)+(2x−6) → x = 8 → remaining distance = 10 km",
+    "judullatihan": {
+      "en": "Simplifying Equations",
+      "id": "Menyederhanakan Persamaan"
+    },
+    "latihan": {
+      "en": "Aji Saka traveled (4x+10) km and still had (2x−6) km left. The total trip was 52 km. Find x and the remaining distance.",
+      "id": "Aji Saka menempuh perjalanan (4x+10) km dan masih tersisa (2x−6) km. Total perjalanan adalah 52 km. Temukan x dan jarak yang tersisa."
+    },
+    "jawabansistempng": "assets/images/quiz_7.png",
+    "jawabansistemteks": {
+      "id": "Jawaban:\n52 = (4x+10) + (2x−6)\n52 = 6x + 4\n6x = 48\nx = 8\nJarak yang tersisa adalah 2(8)−6 = 10 km",
+      "en": "Answer:\n52 = (4x+10) + (2x−6)\n52 = 6x + 4\n6x = 48\nx = 8\nThe remaining distance is 2(8)−6 = 10 km"
+    },
     "jawabanuserpng": "",
     "jawabanuser": ""
   },
   {
     "id": 8,
-    "judul": "Poem and Javanese Script",
+    "judul": {
+      "en": "Poem and Javanese Script",
+      "id": "Puisi dan Aksara Jawa"
+    },
     "level": 3,
     "video": "https://youtube.com/shorts/MVOBM_KxQy4",
-    "judullatihan": "Fraction Equation Practice",
-    "latihan": "Aji Saka gave half of his coconuts to Dewata Cengkar and had 12 left. If he originally had x coconuts, find x.",
-    "jawabansistempng": "assets/images/image_quiz_answer_8.png",
-    "jawabansistemteks": "1/2x = 12 → x = 24",
+    "judullatihan": {
+      "en": "Simple Fraction Equations",
+      "id": "Persamaan Pecahan Sederhana"
+    },
+    "latihan": {
+      "en": "Aji Saka gave half of his coconuts to Dewata Cengkar and had 12 left. If he originally had x coconuts, find x.",
+      "id": "Aji Saka memberikan setengah kelapanya kepada Dewata Cengkar dan tersisa 12. Jika awalnya ia memiliki x kelapa, temukan x."
+    },
+    "jawabansistempng": "assets/images/quiz_8.png",
+    "jawabansistemteks": {
+      "id": "Jawaban:\n½x + 12 = x\n12 = x − ½x\n12 = ½x\nx = 24\nJumlah kelapa Aji Saka adalah 24 buah.",
+      "en": "Answer:\n½x + 12 = x\n12 = x − ½x\n12 = ½x\nx = 24\nAji Saka originally had 24 coconuts."
+    },
     "jawabanuserpng": "",
     "jawabanuser": ""
   }

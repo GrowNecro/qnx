@@ -4,6 +4,9 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/materi_localizer.dart';
+import '../l10n/app_localizations.dart';
+import '../main.dart' show routeObserver;
 
 class AljabarUlasan extends StatefulWidget {
   const AljabarUlasan({super.key});
@@ -12,8 +15,9 @@ class AljabarUlasan extends StatefulWidget {
   State<AljabarUlasan> createState() => _AljabarUlasanState();
 }
 
-class _AljabarUlasanState extends State<AljabarUlasan> {
+class _AljabarUlasanState extends State<AljabarUlasan> with RouteAware {
   List<dynamic> materiList = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
@@ -21,18 +25,71 @@ class _AljabarUlasanState extends State<AljabarUlasan> {
     _loadMateri();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final route = ModalRoute.of(context);
+    if (route is PageRoute) {
+      routeObserver.subscribe(this, route);
+    }
+  }
+
+  @override
+  void dispose() {
+    routeObserver.unsubscribe(this);
+    super.dispose();
+  }
+
+  @override
+  void didPopNext() {
+    // Refresh when returning
+    _loadMateri();
+  }
+
   Future<void> _loadMateri() async {
     final data = await rootBundle.loadString('assets/materi.json');
+    if (!mounted) return;
     setState(() {
       materiList = json.decode(data);
+      _isLoading = false;
     });
   }
 
   /// Ambil jawaban user (image & teks) per judullatihan
-  Future<Map<String, String>> _getUserAnswer(String judullatihan) async {
+  /// Try both EN and ID versions to find existing answer
+  Future<Map<String, String>> _getUserAnswer(
+    Map<String, dynamic> materi,
+  ) async {
     final prefs = await SharedPreferences.getInstance();
-    final imagePath = prefs.getString('userImagePath_$judullatihan') ?? '';
-    final text = prefs.getString('userText_$judullatihan') ?? '';
+    
+    // Get all possible keys to check
+    final judulLatihanField = materi['judullatihan'];
+    List<String> keysToCheck = [];
+
+    if (judulLatihanField is String) {
+      keysToCheck.add(judulLatihanField);
+    } else if (judulLatihanField is Map) {
+      if (judulLatihanField['en'] != null)
+        keysToCheck.add(judulLatihanField['en']);
+      if (judulLatihanField['id'] != null)
+        keysToCheck.add(judulLatihanField['id']);
+    }
+
+    String imagePath = '';
+    String text = '';
+
+    // Check each key for saved answers
+    for (final key in keysToCheck) {
+      final savedImage = prefs.getString('userImagePath_$key') ?? '';
+      final savedText = prefs.getString('userText_$key') ?? '';
+
+      if (savedImage.isNotEmpty || savedText.isNotEmpty) {
+        imagePath = savedImage;
+        text = savedText;
+        break;
+      }
+    }
+    
     return {'image': imagePath, 'text': text};
   }
 
@@ -62,6 +119,7 @@ class _AljabarUlasanState extends State<AljabarUlasan> {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
+    final loc = AppLocalizations.of(context);
 
     return Scaffold(
       body: Stack(
@@ -78,9 +136,9 @@ class _AljabarUlasanState extends State<AljabarUlasan> {
               children: [
                 AppBar(
                   backgroundColor: Colors.transparent,
-                  title: const Text(
-                    'Review: Algebra',
-                    style: TextStyle(
+                  title: Text(
+                    loc?.reviewAlgebra ?? 'Review: Algebra',
+                    style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
                       fontSize: 30,
@@ -89,24 +147,38 @@ class _AljabarUlasanState extends State<AljabarUlasan> {
                   centerTitle: true,
                   elevation: 0,
                   leading: IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    icon: const Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      color: Colors.white,
+                      size: 24,
+                    ),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ),
                 const SizedBox(height: 20),
 
                 Expanded(
-                  child: materiList.isEmpty
-                      ? const Center(child: CircularProgressIndicator())
+                  child: _isLoading
+                      ? const Center(
+                          child: CircularProgressIndicator(
+                            color: Colors.orange,
+                          ),
+                        )
                       : ListView.builder(
                           padding: const EdgeInsets.all(16),
                           itemCount: materiList.length,
                           itemBuilder: (context, index) {
-                            final materi = materiList[index];
+                            final materi =
+                                materiList[index] as Map<String, dynamic>;
                             final nomor = index + 1;
+                            final judulLatihan =
+                                MateriLocalizer.getJudulLatihan(materi);
+                            final latihan = MateriLocalizer.getLatihan(materi);
+                            final jawabanSistem =
+                                MateriLocalizer.getJawabanSistem(materi);
 
                             return FutureBuilder<Map<String, String>>(
-                              future: _getUserAnswer(materi['judullatihan']),
+                              future: _getUserAnswer(materi),
                               builder: (context, snapshot) {
                                 if (!snapshot.hasData) {
                                   return const SizedBox.shrink();
@@ -152,7 +224,7 @@ class _AljabarUlasanState extends State<AljabarUlasan> {
                                         // NOMOR + JUDUL
                                         Center(
                                           child: Text(
-                                            '$nomor. ${materi['judullatihan']}',
+                                            '$nomor. $judulLatihan',
                                             style: const TextStyle(
                                               color: Colors.orange,
                                               fontSize: 20,
@@ -164,16 +236,19 @@ class _AljabarUlasanState extends State<AljabarUlasan> {
                                         const SizedBox(height: 20),
 
                                         // Soal Latihan
-                                        const Text(
-                                          'Exercise Question:',
-                                          style: TextStyle(
+                                        Text(
+                                          loc?.exerciseQuestion ??
+                                              'Exercise Question:',
+                                          style: const TextStyle(
                                             color: Colors.white,
                                             fontWeight: FontWeight.bold,
                                           ),
                                         ),
                                         Text(
-                                          materi['latihan'] ??
-                                              'Exercise question not available.',
+                                          latihan.isEmpty
+                                              ? loc?.exerciseNotAvailable ??
+                                                    'Exercise question not available.'
+                                              : latihan,
                                           style: const TextStyle(
                                             color: Colors.white,
                                           ),
@@ -182,16 +257,18 @@ class _AljabarUlasanState extends State<AljabarUlasan> {
                                         const SizedBox(height: 20),
 
                                         // Jawaban User (Teks)
-                                        const Text(
-                                          'Your Answer (Text):',
-                                          style: TextStyle(
+                                        Text(
+                                          loc?.yourAnswerText ??
+                                              'Your Answer (Text):',
+                                          style: const TextStyle(
                                             color: Colors.orange,
                                             fontWeight: FontWeight.bold,
                                           ),
                                         ),
                                         Text(
                                           userTxt.isEmpty
-                                              ? '(No text answer provided)'
+                                              ? loc?.noTextAnswerProvided ??
+                                                    '(No text answer provided)'
                                               : userTxt,
                                           style: const TextStyle(
                                             color: Colors.white,
@@ -201,9 +278,10 @@ class _AljabarUlasanState extends State<AljabarUlasan> {
                                         const SizedBox(height: 20),
 
                                         // Jawaban User (Gambar)
-                                        const Text(
-                                          'Your Answer (Image):',
-                                          style: TextStyle(
+                                        Text(
+                                          loc?.yourAnswerImage ??
+                                              'Your Answer (Image):',
+                                          style: const TextStyle(
                                             color: Colors.orange,
                                             fontWeight: FontWeight.bold,
                                           ),
@@ -214,16 +292,19 @@ class _AljabarUlasanState extends State<AljabarUlasan> {
                                         const SizedBox(height: 24),
 
                                         // Jawaban Sistem (Teks)
-                                        const Text(
-                                          'System Answer (Text):',
-                                          style: TextStyle(
+                                        Text(
+                                          loc?.systemAnswerText ??
+                                              'System Answer (Text):',
+                                          style: const TextStyle(
                                             color: Colors.orange,
                                             fontWeight: FontWeight.bold,
                                           ),
                                         ),
                                         Text(
-                                          materi['jawabansistemteks'] ??
-                                              'No system text available.',
+                                          jawabanSistem.isEmpty
+                                              ? loc?.noSystemTextAvailable ??
+                                                    'No system text available.'
+                                              : jawabanSistem,
                                           style: const TextStyle(
                                             color: Colors.white,
                                           ),
@@ -232,9 +313,10 @@ class _AljabarUlasanState extends State<AljabarUlasan> {
                                         const SizedBox(height: 20),
 
                                         // Jawaban Sistem (Langkah / Gambar)
-                                        const Text(
-                                          'System Answer (Step):',
-                                          style: TextStyle(
+                                        Text(
+                                          loc?.systemAnswerStep ??
+                                              'System Answer (Step):',
+                                          style: const TextStyle(
                                             color: Colors.orange,
                                             fontWeight: FontWeight.bold,
                                           ),

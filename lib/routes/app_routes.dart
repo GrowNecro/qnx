@@ -6,6 +6,7 @@ import '../pages/quiz_page.dart';
 import '../pages/aljabar_quiz.dart';
 import '../pages/ulasan_page.dart';
 import '../pages/aljabar_ulasan.dart';
+import '../pages/help_page.dart';
 
 // Import hanya AljabarQuizPage dari file ini
 import '../pages/aljabar_quiz_page.dart' show AljabarQuizPage;
@@ -53,6 +54,12 @@ class AppRoutes {
         defaultTransisi = null;
         break;
 
+      // HALAMAN BANTUAN
+      case '/help':
+        page = const HelpPage();
+        defaultTransisi = null;
+        break;
+
       // HALAMAN QUIZ PER SOAL
       case '/quiz/page':
         page = AljabarQuizPage(
@@ -86,6 +93,11 @@ class AppRoutes {
     final String? explicitTransisi = (args?['transisi'] is String)
         ? args!['transisi'] as String
         : null;
+
+    final Map<String, dynamic>? forwardedArgs = args == null
+        ? null
+        : Map<String, dynamic>.from(args!);
+    forwardedArgs?.remove('transisi');
 
     final String? customPngPattern = (args?['pngPattern'] is String)
         ? args!['pngPattern'] as String
@@ -142,6 +154,22 @@ class AppRoutes {
 
     // ==== KALAU ADA TRANSISI, PAKAI PngTransisiStageRoute ====
 
+    if (selectedTransisi == 'fade') {
+      return PageRouteBuilder(
+        settings: RouteSettings(name: settings.name, arguments: forwardedArgs),
+        transitionDuration: const Duration(milliseconds: 220),
+        reverseTransitionDuration: const Duration(milliseconds: 220),
+        pageBuilder: (_, __, ___) => page!,
+        transitionsBuilder: (_, animation, __, child) {
+          final fadeCurve = CurvedAnimation(
+            parent: animation,
+            curve: Curves.easeInOut,
+          );
+          return FadeTransition(opacity: fadeCurve, child: child);
+        },
+      );
+    }
+
     if (selectedTransisi == 'transisi1') {
       return PngTransisiStageRoute(
         pageUnder: page, // halaman tujuan
@@ -156,10 +184,17 @@ class AppRoutes {
         endFrameDelay: Duration(milliseconds: endFrameDelayMs),
         reverseFrames: reverseFrames,
         autoPopOnFinish: false,
+        // Transisi PNG dimulai dulu, pageUnder tampil di fase akhir
+        stageStartOnFinalPhase: true,
+        stageStartFrames: 1,
+        finalPhaseFrameCount: 10, // PageUnder tampil 10 frame sebelum selesai
       );
     }
 
     // ==== ROUTE BIASA TANPA TRANSISI ====
-    return MaterialPageRoute(builder: (_) => page!);
+    return MaterialPageRoute(
+      settings: RouteSettings(name: settings.name, arguments: forwardedArgs),
+      builder: (_) => page!,
+    );
   }
 }

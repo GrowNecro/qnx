@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import '../l10n/app_localizations.dart';
 
 class QuizPage extends StatelessWidget {
   const QuizPage({super.key});
@@ -6,6 +8,7 @@ class QuizPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
+    final loc = AppLocalizations.of(context);
 
     return Scaffold(
       body: Stack(
@@ -25,9 +28,9 @@ class QuizPage extends StatelessWidget {
                 children: [
                   AppBar(
                     backgroundColor: Colors.transparent,
-                    title: const Text(
-                      'Questions',
-                      style: TextStyle(
+                    title: Text(
+                      loc?.questions ?? 'Questions',
+                      style: const TextStyle(
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
                         fontSize: 30,
@@ -36,22 +39,26 @@ class QuizPage extends StatelessWidget {
                     centerTitle: true,
                     elevation: 0,
                     leading: IconButton(
-                      icon: const Icon(Icons.arrow_back, color: Colors.white),
+                      icon: const Icon(
+                        Icons.arrow_back_ios_new_rounded,
+                        color: Colors.white,
+                        size: 24,
+                      ),
                       onPressed: () => Navigator.pop(context),
                     ),
                   ),
                   const SizedBox(height: 30),
                   _menuButton(
                     context,
-                    'Algebra',
+                    loc?.algebra ?? 'Algebra',
                     '/quiz/aljabar',
                     screenWidth,
                   ),
                   const SizedBox(height: 20),
                   _menuButton(
                     context,
-                    'COMING SOON',
-                    'null',
+                    loc?.comingSoon ?? 'COMING SOON',
+                    null,
                     screenWidth,
                   ),
                 ],
@@ -66,25 +73,35 @@ class QuizPage extends StatelessWidget {
   Widget _menuButton(
     BuildContext context,
     String text,
-    String route,
+    String? route,
     double screenWidth,
   ) {
+    final isDisabled = route == null;
+    
     return SizedBox(
       width: screenWidth * 0.9, // 90% lebar layar
       height: 120,
       child: ElevatedButton(
-        onPressed: () => Navigator.pushNamed(context, route),
+        onPressed: isDisabled
+            ? null
+            : () {
+                HapticFeedback.lightImpact();
+                Navigator.pushNamed(context, route);
+              },
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.white.withValues(alpha: 0.7),
+          backgroundColor: Colors.white.withValues(
+            alpha: isDisabled ? 0.4 : 0.7,
+          ),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(15),
           ),
-          elevation: 3,
+          elevation: isDisabled ? 0 : 3,
+          disabledBackgroundColor: Colors.white.withValues(alpha: 0.4),
         ),
         child: Text(
           text,
-          style: const TextStyle(
-            color: Colors.black,
+          style: TextStyle(
+            color: isDisabled ? Colors.grey[600] : Colors.black,
             fontWeight: FontWeight.bold,
             fontSize: 30,
           ),

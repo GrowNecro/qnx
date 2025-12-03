@@ -39,6 +39,15 @@ class PngTransisiStageRoute extends PageRoute<void> {
   /// supaya stage tidak pernah dimulai.
   final int stageStartFrames;
 
+  /// Jika true, stage (pageUnder) akan mulai ditampilkan saat overlay
+  /// masuk fase akhir (terakhir N frame). Berguna untuk mode normal/intro
+  /// agar pageUnder tidak tampil terlalu cepat.
+  final bool stageStartOnFinalPhase;
+
+  /// Berapa frame dari akhir dianggap "fase akhir".
+  /// Default 10 frame.
+  final int finalPhaseFrameCount;
+
   final Duration initialDelay;
   final Duration endFrameDelay;
   final bool overlayFadeOut;
@@ -67,22 +76,24 @@ class PngTransisiStageRoute extends PageRoute<void> {
     required this.pngFrameCount,
     this.fps = 24,
     this.loop = false,
-    this.bufferSize = 8,
+    this.bufferSize = 4,
     this.targetDisplayWidth,
     this.targetDisplayHeight,
     this.stageStartFrames = 1,
+    this.stageStartOnFinalPhase = false,
+    this.finalPhaseFrameCount = 10,
     this.initialDelay = Duration.zero,
-    this.endFrameDelay = const Duration(milliseconds: 140),
+    this.endFrameDelay = const Duration(milliseconds: 80),
     this.overlayFadeOut = true,
-    this.overlayFadeDuration = const Duration(milliseconds: 240),
-    this.initialFreeze = const Duration(milliseconds: 500),
+    this.overlayFadeDuration = const Duration(milliseconds: 150),
+    this.initialFreeze = const Duration(milliseconds: 100),
     this.reverseFrames = false,
     this.autoPopOnFinish = false,
     this.audioAsset,
     this.audioLoop = true,
     this.initialAudioMuted = false,
     this.pageReadyFuture,
-    this.pageReadyTimeout = const Duration(milliseconds: 800),
+    this.pageReadyTimeout = const Duration(milliseconds: 300),
     this.onTransitionFinished,
   });
 
@@ -137,6 +148,8 @@ class PngTransisiStageRoute extends PageRoute<void> {
         targetDisplayHeight: targetDisplayHeight,
         initialDelay: initialDelay,
         stageStartDelay: stageStartDelay,
+        stageStartOnFinalPhase: stageStartOnFinalPhase,
+        finalPhaseFrameCount: finalPhaseFrameCount,
         endFrameDelay: endFrameDelay,
         initialFreeze: initialFreeze,
         pageReadyFuture: pageReadyFuture,
@@ -170,6 +183,12 @@ class _StageOverlayBody extends StatefulWidget {
   /// Kapan pageUnder mulai dirender (relatif ke start overlay).
   final Duration stageStartDelay;
 
+  /// Jika true, stage dimulai saat masuk fase akhir animasi.
+  final bool stageStartOnFinalPhase;
+
+  /// Berapa frame dari akhir dianggap "fase akhir".
+  final int finalPhaseFrameCount;
+
   /// Delay kecil setelah overlay selesai sebelum disembunyikan.
   final Duration endFrameDelay;
 
@@ -202,10 +221,12 @@ class _StageOverlayBody extends StatefulWidget {
     required this.targetDisplayHeight,
     required this.initialDelay,
     required this.stageStartDelay,
+    this.stageStartOnFinalPhase = false,
+    this.finalPhaseFrameCount = 10,
     required this.endFrameDelay,
-    this.initialFreeze = const Duration(milliseconds: 500),
+    this.initialFreeze = const Duration(milliseconds: 100),
     this.pageReadyFuture,
-    this.pageReadyTimeout = const Duration(milliseconds: 800),
+    this.pageReadyTimeout = const Duration(milliseconds: 300),
     this.audioAsset,
     this.audioLoop = true,
     this.initialAudioMuted = false,
@@ -228,15 +249,11 @@ class _StageOverlayBodyState extends State<_StageOverlayBody> {
   // whether alpha sequence finished
   bool _finished = false;
 
-  // whether preload event signaled by AlphaVideoPlayer happened
-  bool _preloadReady = false;
-
   // whether pageUnder reported ready (via provided future) or default true
   bool _pageReady = false;
 
-  // Completers used to coordinate readiness
-  late final Completer<void> _preloadReadyCompleter;
-  late final Completer<void> _stageDelayCompleter;
+  // Key untuk AlphaVideoPlayer (tidak perlu akses state lagi, tapi tetap simpan untuk rebuild)
+  final GlobalKey _playerKey = GlobalKey();
 
   // AUDIO
   VideoPlayerController? _audioController;
@@ -259,9 +276,6 @@ class _StageOverlayBodyState extends State<_StageOverlayBody> {
       ),
     );
 
-    _preloadReadyCompleter = Completer<void>();
-    _stageDelayCompleter = Completer<void>();
-
     if (widget.audioAsset != null) {
       _initAudio(
         widget.audioAsset!,
@@ -270,71 +284,51 @@ class _StageOverlayBodyState extends State<_StageOverlayBody> {
       );
     }
 
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!mounted) return;
+    // wait for pageReadyFuture (with timeout) if provided
+    if (widget.pageReadyFuture != null) {
+      widget.pageReadyFuture!
+          .then((_) {
+            if (!mounted) return;
+            _pageReady = true;
+          })
+          .catchError((_) {
+            if (!mounted) return;
+            _pageReady = true;
+          });
 
-      // Optional initialDelay (retained for compatibility)
-      if (widget.initialDelay > Duration.zero) {
-        Future.delayed(widget.initialDelay, () {
-          if (!mounted) return;
-        });
-      }
-
-      // schedule stageStartDelay completer (frame-based small delay)
-      if (widget.stageStartDelay > Duration.zero) {
-        Future.delayed(widget.stageStartDelay, () {
-          if (!mounted) return;
-          if (!_stageDelayCompleter.isCompleted) {
-            _stageDelayCompleter.complete();
-          }
-        });
-      } else {
-        if (!_stageDelayCompleter.isCompleted) {
-          _stageDelayCompleter.complete();
-        }
-      }
-
-      // wait for pageReadyFuture (with timeout) if provided
-      if (widget.pageReadyFuture != null) {
-        widget.pageReadyFuture!
-            .then((_) {
-              if (!mounted) return;
-              _pageReady = true;
-            })
-            .catchError((_) {
-              if (!mounted) return;
-              _pageReady = true;
-            });
-
-        // timeout fallback
-        Future.delayed(widget.pageReadyTimeout, () {
-          if (!mounted) return;
-          if (!_pageReady) _pageReady = true;
-        });
-      } else {
-        _pageReady = true;
-      }
-
-      // Wait for preload readiness AND stage delay, then check page readiness before starting stage.
-      Future.wait([
-        _preloadReadyCompleter.future,
-        _stageDelayCompleter.future,
-      ]).then((_) async {
-        // poll until pageReady or timeout
-        final sw = Stopwatch()..start();
-        while (!_pageReady &&
-            sw.elapsed <
-                widget.pageReadyTimeout + const Duration(milliseconds: 50)) {
-          await Future.delayed(const Duration(milliseconds: 16));
-          if (!mounted) return;
-        }
+      // timeout fallback
+      Future.delayed(widget.pageReadyTimeout, () {
         if (!mounted) return;
-
-        setState(() {
-          _stageStarted = true;
-        });
+        if (!_pageReady) _pageReady = true;
       });
-    });
+    } else {
+      _pageReady = true;
+    }
+  }
+
+  // Called when initial preload is ready - playback auto-starts
+  void _onPreloadReady() {
+    if (!mounted) return;
+
+    // Jika tidak pakai stageStartOnFinalPhase, langsung tampilkan stage
+    if (!widget.stageStartOnFinalPhase) {
+      setState(() {
+        _stageStarted = true;
+      });
+    }
+  }
+
+  // Called when AlphaVideoPlayer enters final phase (last N frames)
+  void _onEnteringFinalPhase() {
+    if (!mounted) return;
+    if (_stageStarted) return; // already started
+
+    // Only trigger if stageStartOnFinalPhase is enabled
+    if (widget.stageStartOnFinalPhase) {
+      setState(() {
+        _stageStarted = true;
+      });
+    }
   }
 
   Future<void> _initAudio(String asset, bool loop, bool initialMuted) async {
@@ -389,16 +383,6 @@ class _StageOverlayBodyState extends State<_StageOverlayBody> {
     }
   }
 
-  // Called when AlphaVideoPlayer reports preload ready or first frame rendered
-  void _onPreloadReady() {
-    if (!mounted) return;
-    if (_preloadReady) return;
-    _preloadReady = true;
-    if (!_preloadReadyCompleter.isCompleted) {
-      _preloadReadyCompleter.complete();
-    }
-  }
-
   @override
   void dispose() {
     SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
@@ -428,6 +412,7 @@ class _StageOverlayBodyState extends State<_StageOverlayBody> {
   @override
   Widget build(BuildContext context) {
     final alphaPlayer = AlphaVideoPlayer(
+      key: _playerKey,
       webmAsset: '',
       pngPattern: widget.pngPattern,
       pngFrameCount: widget.pngFrameCount,
@@ -435,15 +420,15 @@ class _StageOverlayBodyState extends State<_StageOverlayBody> {
       loop: widget.loop,
       forceUseWebm: false,
       onFinished: _onAlphaFinished,
-      initialPreloadFrames: 24,
-      loadRestAfterPreload: true,
       onPreloadReady: _onPreloadReady,
-      onFirstFrameRendered: _onPreloadReady,
+      onEnteringFinalPhase: _onEnteringFinalPhase,
+      finalPhaseFrameCount: widget.finalPhaseFrameCount,
       fit: BoxFit.cover,
       bufferSize: widget.bufferSize,
       targetDisplayWidth: widget.targetDisplayWidth,
       targetDisplayHeight: widget.targetDisplayHeight,
       reverseFrames: widget.reverseFrames,
+      initialPreloadFrames: 24, // preload 24 frame dulu sebelum playback
     );
 
     // Fullscreen dengan Scaffold yang extend ke belakang status bar

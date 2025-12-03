@@ -1,7 +1,10 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart' show rootBundle;
+import 'package:flutter/services.dart' show rootBundle, HapticFeedback;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../utils/materi_localizer.dart';
+import '../l10n/app_localizations.dart';
+import '../main.dart' show routeObserver;
 
 class AljabarPage extends StatefulWidget {
   const AljabarPage({super.key});
@@ -10,10 +13,11 @@ class AljabarPage extends StatefulWidget {
   State<AljabarPage> createState() => _AljabarPageState();
 }
 
-class _AljabarPageState extends State<AljabarPage> {
+class _AljabarPageState extends State<AljabarPage> with RouteAware {
   List<dynamic> materiList = [];
   // Map untuk menyimpan status quiz sudah dikerjakan atau belum per judullatihan
   Map<String, bool> quizCompletedMap = {};
+  bool _isLoading = true;
 
   Future<void> loadMateri() async {
     final data = await rootBundle.loadString('assets/materi.json');
@@ -24,7 +28,15 @@ class _AljabarPageState extends State<AljabarPage> {
     final Map<String, bool> completedMap = {};
 
     for (final materi in list) {
-      final judullatihan = materi['judullatihan']?.toString() ?? '';
+      // Use the raw judullatihan for key lookup (combine en+id or use id field)
+      final rawJudullatihan = materi['judullatihan'];
+      String judullatihan = '';
+      if (rawJudullatihan is String) {
+        judullatihan = rawJudullatihan;
+      } else if (rawJudullatihan is Map) {
+        // Use English as the key identifier
+        judullatihan = rawJudullatihan['en']?.toString() ?? '';
+      }
       if (judullatihan.isNotEmpty) {
         // Cek apakah ada jawaban tersimpan (gambar atau teks)
         final imagePath = prefs.getString('userImagePath_$judullatihan');
@@ -35,9 +47,11 @@ class _AljabarPageState extends State<AljabarPage> {
       }
     }
     
+    if (!mounted) return;
     setState(() {
       materiList = list;
       quizCompletedMap = completedMap;
+      _isLoading = false;
     });
   }
 
@@ -48,8 +62,31 @@ class _AljabarPageState extends State<AljabarPage> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Subscribe to route changes for auto-refresh
+    final route = ModalRoute.of(context);
+    if (route is PageRoute) {
+      routeObserver.subscribe(this, route);
+    }
+  }
+
+  @override
+  void dispose() {
+    routeObserver.unsubscribe(this);
+    super.dispose();
+  }
+
+  @override
+  void didPopNext() {
+    // Refresh when returning from another page
+    loadMateri();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
+    final loc = AppLocalizations.of(context);
 
     return Scaffold(
       body: Stack(
@@ -69,9 +106,9 @@ class _AljabarPageState extends State<AljabarPage> {
                 AppBar(
                   backgroundColor: Colors.transparent,
                   elevation: 0,
-                  title: const Text(
-                    'Materials - Algebra',
-                    style: TextStyle(
+                  title: Text(
+                    loc?.materialsAlgebra ?? 'Materials - Algebra',
+                    style: const TextStyle(
                       fontWeight: FontWeight.bold,
                       color: Colors.white,
                       fontSize: 30,
@@ -79,32 +116,52 @@ class _AljabarPageState extends State<AljabarPage> {
                   ),
                   centerTitle: true,
                   leading: IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    icon: const Icon(
+                      Icons.arrow_back_ios_new_rounded,
+                      color: Colors.white,
+                      size: 24,
+                    ),
                     onPressed: () => Navigator.pop(context),
                   ),
                 ),
 
                 // List materi
                 Expanded(
-                  child: ListView.builder(
+                  child: _isLoading
+                      ? const Center(
+                          child: CircularProgressIndicator(
+                            color: Colors.orange,
+                          ),
+                        )
+                      : ListView.builder(
                     padding: const EdgeInsets.all(16),
                     itemCount: materiList.length,
                     itemBuilder: (context, index) {
-                      final materi = materiList[index];
-                      final judullatihan =
-                          materi['judullatihan']?.toString() ?? '';
+                      final materi = materiList[index] as Map<String, dynamic>;
+                      // Get localized texts
+                      final judul = MateriLocalizer.getJudul(materi);
+                      // Use English judullatihan as key for storage
+                      final rawJudullatihan = materi['judullatihan'];
+                      String judullatihanKey = '';
+                      if (rawJudullatihan is String) {
+                        judullatihanKey = rawJudullatihan;
+                      } else if (rawJudullatihan is Map) {
+                        judullatihanKey =
+                            rawJudullatihan['en']?.toString() ?? '';
+                      }
                       final isCompleted =
-                          quizCompletedMap[judullatihan] ?? false;
+                          quizCompletedMap[judullatihanKey] ?? false;
 
                       return GestureDetector(
                         onTap: () {
+                                HapticFeedback.lightImpact();
                           Navigator.pushNamed(
                             context,
                             '/materi/video',
                             arguments: {
                               'videoPath': materi['video'] ?? '',
-                              'judulMateri': materi['judul'] ?? '',
-                              'judullatihan': materi['judullatihan'] ?? '',
+                              'judulMateri': judul,
+                              'judullatihan': judullatihanKey,
                             },
                           );
                         },
@@ -113,7 +170,7 @@ class _AljabarPageState extends State<AljabarPage> {
                           child: Container(
                             width: screenWidth * 0.9,
                             margin: const EdgeInsets.only(bottom: 20),
-                            padding: const EdgeInsets.all(16),
+                            padding: const EdgeInsets.all(0),
                             height: 120,
                             decoration: BoxDecoration(
                               color: Colors.grey.shade200.withValues(
@@ -126,14 +183,17 @@ class _AljabarPageState extends State<AljabarPage> {
                                 // Judul materi
                                 Padding(
                                   padding: const EdgeInsets.only(
-                                    bottom: 10,
-                                    top: 10,
+                                    bottom: 20,
+                                    top: 20,
+                                    right: 20,
+                                    left: 20,
                                   ),
                                   child: Text(
-                                    materi['judul'] ?? 'Title not available',
+                                    judul,
                                     style: const TextStyle(
                                       fontSize: 20,
                                       fontWeight: FontWeight.bold,
+                                            color: Colors.black,
                                     ),
                                   ),
                                 ),
@@ -145,7 +205,7 @@ class _AljabarPageState extends State<AljabarPage> {
                                     children: List.generate(
                                       (materi['level'] ?? 1) as int,
                                       (i) => Container(
-                                        margin: const EdgeInsets.all(4),
+                                        margin: const EdgeInsets.all(5),
                                         width: 35,
                                         height: 35,
                                         decoration: const BoxDecoration(
@@ -162,11 +222,11 @@ class _AljabarPageState extends State<AljabarPage> {
                                 // Maskot di tengah jika quiz sudah dikerjakan
                                 if (isCompleted)
                                   Align(
-                                    alignment: Alignment.center,
+                                    alignment: Alignment.bottomRight,
                                     child: Image.asset(
                                       'assets/images/maskot.png',
-                                      width: 80,
-                                      height: 80,
+                                      width: 90,
+                                      height: 90,
                                       fit: BoxFit.contain,
                                     ),
                                   ),
