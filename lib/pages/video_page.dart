@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:video_player/video_player.dart';
 import 'package:flutter/services.dart'
     show rootBundle, SystemChrome, SystemUiMode;
@@ -8,6 +10,9 @@ import 'png_transisi_stage_route.dart';
 import 'aljabar_quiz_page.dart';
 import '../l10n/app_localizations.dart';
 import '../utils/materi_localizer.dart';
+import '../utils/mega_downloader.dart';
+import '../utils/gdrive_helper.dart';
+import '../utils/gdrive_downloader.dart';
 
 class VideoPage extends StatefulWidget {
   final String videoPath; // could be asset path, http(s) mp4 or YouTube URL
@@ -34,6 +39,8 @@ class _VideoPageState extends State<VideoPage> {
   YoutubePlayerController? _youtubeController;
 
   bool _isYoutube = false;
+  bool _isMega = false;
+  bool _isGDrive = false;
 
   bool _isInitialized = false;
   bool _youtubeReady = false;
@@ -42,6 +49,11 @@ class _VideoPageState extends State<VideoPage> {
   bool _showExerciseButton = false;
   bool _isPlaying = false;
   bool _hasStartedPlaying = false;
+  
+  // Loading states
+  bool _isLoading = false;
+  double _loadingProgress = 0.0;
+  String? _downloadedPath;
 
   @override
   void initState() {
@@ -53,8 +65,66 @@ class _VideoPageState extends State<VideoPage> {
     _detectAndInitController();
   }
 
-  void _detectAndInitController() {
+  void _detectAndInitController() async {
     final path = widget.videoPath.trim();
+
+    // Deteksi Google Drive URL
+    if (GDriveHelper.isGDriveUrl(path)) {
+      _isGDrive = true;
+
+      // Check if already downloaded
+      final localPath = await GDriveDownloader.getLocalPath(path);
+      if (localPath != null) {
+        debugPrint('Playing from local: $localPath');
+        // Play from local file
+        _downloadedPath = localPath;
+        _initVideoFromFile(localPath);
+        return;
+      }
+
+      debugPrint('Downloading from Google Drive (auto download)');
+
+      // Auto download from Google Drive (can't stream directly due to virus scan page)
+      setState(() {
+        _isLoading = true;
+        _loadingProgress = 0.0;
+      });
+
+      try {
+        final downloadedPath = await GDriveDownloader.downloadFromGDrive(
+          path,
+          onProgress: (progress) {
+            if (mounted) {
+              setState(() => _loadingProgress = progress);
+            }
+          },
+        );
+
+        if (!mounted) return;
+
+        if (downloadedPath != null) {
+          _downloadedPath = downloadedPath;
+          setState(() => _isLoading = false);
+          _initVideoFromFile(downloadedPath);
+        } else {
+          throw Exception('Failed to download video');
+        }
+      } catch (e) {
+        if (!mounted) return;
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Failed to load video: $e')));
+      }
+      return;
+    }
+
+    // Deteksi Mega URL
+    if (path.contains('mega.nz')) {
+      _isMega = true;
+      await _handleMegaVideo(path);
+      return;
+    }
 
     // Deteksi YouTube
     final youtubeId = YoutubePlayer.convertUrlToId(path);
@@ -84,6 +154,74 @@ class _VideoPageState extends State<VideoPage> {
     if (_videoController != null) {
       _videoController!.addListener(_videoListener);
     }
+  }
+
+  Future<void> _handleMegaVideo(String megaUrl) async {
+    // Check if already downloaded
+    final localPath = await MegaDownloader.getLocalPath(megaUrl);
+
+    if (localPath != null) {
+      // Already downloaded, play from local file
+      _downloadedPath = localPath;
+      _initVideoFromFile(localPath);
+      return;
+    }
+
+    // Not downloaded, need to download first (Mega doesn't support direct streaming)
+    setState(() {
+      _isLoading = true;
+      _loadingProgress = 0.0;
+    });
+
+    try {
+      final downloadedPath = await MegaDownloader.downloadFromMega(
+        megaUrl,
+        onProgress: (progress) {
+          if (mounted) {
+            setState(() => _loadingProgress = progress);
+          }
+        },
+      );
+
+      if (!mounted) return;
+
+      if (downloadedPath != null) {
+        _downloadedPath = downloadedPath;
+        setState(() => _isLoading = false);
+        _initVideoFromFile(downloadedPath);
+      } else {
+        throw Exception('Failed to download video');
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to load video: $e')));
+    }
+  }
+
+  void _initVideoFromFile(String filePath) {
+    _videoController =
+        VideoPlayerController.file(
+            File(filePath),
+            videoPlayerOptions: VideoPlayerOptions(
+              mixWithOthers: false,
+              allowBackgroundPlayback: false,
+            ),
+          )
+          ..initialize()
+              .then((_) {
+                if (!mounted) return;
+                setState(() => _isInitialized = true);
+                _videoController?.setVolume(1.0);
+                _videoController?.play();
+              })
+              .catchError((error) {
+                debugPrint('Error initializing video: $error');
+              });
+
+    _videoController!.addListener(_videoListener);
   }
 
   void _initYoutubeController(String videoId) {
@@ -316,6 +454,46 @@ class _VideoPageState extends State<VideoPage> {
   }
 
   Widget _buildVideoContent(BoxConstraints constraints) {
+    // Loading state for Mega and Google Drive videos
+    if ((_isMega || _isGDrive) && _isLoading) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const CircularProgressIndicator(color: Colors.orange),
+            const SizedBox(height: 16),
+            const Text(
+              'Downloading video...',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                shadows: [Shadow(blurRadius: 4, color: Colors.black54)],
+              ),
+            ),
+            const SizedBox(height: 12),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 60),
+              child: LinearProgressIndicator(
+                value: _loadingProgress,
+                backgroundColor: Colors.white24,
+                valueColor: const AlwaysStoppedAnimation<Color>(Colors.orange),
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              '${(_loadingProgress * 100).toStringAsFixed(0)}%',
+              style: const TextStyle(
+                color: Colors.white70,
+                fontSize: 14,
+                shadows: [Shadow(blurRadius: 4, color: Colors.black54)],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     // Untuk YouTube
     if (_isYoutube) {
       if (_youtubeController == null) {
@@ -519,7 +697,73 @@ class _VideoPageState extends State<VideoPage> {
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 48),
+                              // Delete download button for Mega & Google Drive videos
+                              if ((_isMega || _isGDrive) &&
+                                  _downloadedPath != null &&
+                                  !_isPlaying)
+                                IconButton(
+                                  icon: const Icon(
+                                    Icons.delete_outline,
+                                    color: Colors.white,
+                                    shadows: [
+                                      Shadow(
+                                        blurRadius: 4,
+                                        color: Colors.black54,
+                                      ),
+                                    ],
+                                  ),
+                                  onPressed: () async {
+                                    final confirm = await showDialog<bool>(
+                                      context: context,
+                                      builder: (context) => AlertDialog(
+                                        title: const Text('Delete Download'),
+                                        content: const Text(
+                                          'Delete downloaded video to free up storage? You can download it again later.',
+                                        ),
+                                        actions: [
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(context, false),
+                                            child: const Text('Cancel'),
+                                          ),
+                                          TextButton(
+                                            onPressed: () =>
+                                                Navigator.pop(context, true),
+                                            child: const Text('Delete'),
+                                          ),
+                                        ],
+                                      ),
+                                    );
+
+                                    if (confirm == true) {
+                                      bool deleted = false;
+                                      if (_isMega) {
+                                        deleted =
+                                            await MegaDownloader.deleteDownload(
+                                              widget.videoPath,
+                                            );
+                                      } else if (_isGDrive) {
+                                        deleted =
+                                            await GDriveDownloader.deleteDownload(
+                                              widget.videoPath,
+                                            );
+                                      }
+
+                                      if (deleted && mounted) {
+                                        ScaffoldMessenger.of(
+                                          context,
+                                        ).showSnackBar(
+                                          const SnackBar(
+                                            content: Text('Video deleted'),
+                                          ),
+                                        );
+                                        Navigator.pop(context);
+                                      }
+                                    }
+                                  },
+                                )
+                              else
+                                const SizedBox(width: 48),
                             ],
                           ),
                         ),

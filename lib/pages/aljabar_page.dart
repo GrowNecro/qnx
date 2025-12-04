@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show rootBundle, HapticFeedback;
 import 'package:shared_preferences/shared_preferences.dart';
 import '../utils/materi_localizer.dart';
+import '../utils/mega_downloader.dart';
+import '../utils/gdrive_helper.dart';
+import '../utils/gdrive_downloader.dart';
 import '../l10n/app_localizations.dart';
 import '../main.dart' show routeObserver;
 
@@ -17,6 +20,8 @@ class _AljabarPageState extends State<AljabarPage> with RouteAware {
   List<dynamic> materiList = [];
   // Map untuk menyimpan status quiz sudah dikerjakan atau belum per judullatihan
   Map<String, bool> quizCompletedMap = {};
+  Map<String, bool> downloadStatusMap = {};
+  Map<String, double> downloadProgressMap = {};
   bool _isLoading = true;
 
   Future<void> loadMateri() async {
@@ -26,6 +31,7 @@ class _AljabarPageState extends State<AljabarPage> with RouteAware {
     // Load status quiz dari SharedPreferences
     final prefs = await SharedPreferences.getInstance();
     final Map<String, bool> completedMap = {};
+    final Map<String, bool> downloadMap = {};
 
     for (final materi in list) {
       // Use the raw judullatihan for key lookup (combine en+id or use id field)
@@ -45,12 +51,23 @@ class _AljabarPageState extends State<AljabarPage> with RouteAware {
             (imagePath != null && imagePath.isNotEmpty) ||
             (text != null && text.isNotEmpty);
       }
+
+      // Check download status for Mega and Google Drive videos
+      final videoUrl = materi['video']?.toString() ?? '';
+      if (videoUrl.contains('mega.nz')) {
+        downloadMap[judullatihan] = await MegaDownloader.isDownloaded(videoUrl);
+      } else if (GDriveHelper.isGDriveUrl(videoUrl)) {
+        downloadMap[judullatihan] = await GDriveDownloader.isDownloaded(
+          videoUrl,
+        );
+      }
     }
     
     if (!mounted) return;
     setState(() {
       materiList = list;
       quizCompletedMap = completedMap;
+      downloadStatusMap = downloadMap;
       _isLoading = false;
     });
   }
@@ -151,6 +168,16 @@ class _AljabarPageState extends State<AljabarPage> with RouteAware {
                       }
                       final isCompleted =
                           quizCompletedMap[judullatihanKey] ?? false;
+                            final videoUrl = materi['video']?.toString() ?? '';
+                            final isMegaVideo = videoUrl.contains('mega.nz');
+                            final isGDriveVideo = GDriveHelper.isGDriveUrl(
+                              videoUrl,
+                            );
+                            final isDownloadable = isMegaVideo || isGDriveVideo;
+                            final isDownloaded =
+                                downloadStatusMap[judullatihanKey] ?? false;
+                            final downloadProgress =
+                                downloadProgressMap[judullatihanKey] ?? 0.0;
 
                       return GestureDetector(
                         onTap: () {
@@ -230,6 +257,130 @@ class _AljabarPageState extends State<AljabarPage> with RouteAware {
                                       fit: BoxFit.contain,
                                     ),
                                   ),
+                                      // Show cached status for Google Drive & Mega videos
+                                      if (isDownloadable && isDownloaded)
+                                        Positioned(
+                                          left: 10,
+                                          bottom: 10,
+                                          child: Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 8,
+                                              vertical: 4,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: Colors.green.withValues(
+                                                alpha: 0.9,
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                            ),
+                                            child: const Row(
+                                              mainAxisSize: MainAxisSize.min,
+                                              children: [
+                                                Icon(
+                                                  Icons.offline_pin,
+                                                  color: Colors.white,
+                                                  size: 16,
+                                                ),
+                                                SizedBox(width: 4),
+                                                Text(
+                                                  'Cached',
+                                                  style: TextStyle(
+                                                    color: Colors.white,
+                                                    fontSize: 12,
+                                                    fontWeight: FontWeight.bold,
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      // Mega download button (manual download only)
+                                      if (isMegaVideo && !isDownloaded)
+                                        Positioned(
+                                          left: 10,
+                                          bottom: 10,
+                                          child:
+                                              downloadProgress > 0 &&
+                                                  downloadProgress < 1
+                                              ? SizedBox(
+                                                  width: 40,
+                                                  height: 40,
+                                                  child: CircularProgressIndicator(
+                                                    value: downloadProgress,
+                                                    strokeWidth: 3,
+                                                    backgroundColor: Colors
+                                                        .orange
+                                                        .withValues(alpha: 0.3),
+                                                    valueColor:
+                                                        const AlwaysStoppedAnimation<
+                                                          Color
+                                                        >(Colors.orange),
+                                                  ),
+                                                )
+                                              : IconButton(
+                                                  icon: const Icon(
+                                                    Icons.download,
+                                                    color: Colors.orange,
+                                                    size: 30,
+                                                  ),
+                                                  onPressed: () async {
+                                                    // Download Mega video manually
+                                                    setState(() {
+                                                      downloadProgressMap[judullatihanKey] =
+                                                          0.01;
+                                                    });
+
+                                                    final path =
+                                                        await MegaDownloader.downloadFromMega(
+                                                          videoUrl,
+                                                          onProgress: (progress) {
+                                                            if (mounted) {
+                                                              setState(() {
+                                                                downloadProgressMap[judullatihanKey] =
+                                                                    progress;
+                                                              });
+                                                            }
+                                                          },
+                                                        );
+
+                                                    if (mounted) {
+                                                      setState(() {
+                                                        downloadProgressMap
+                                                            .remove(
+                                                              judullatihanKey,
+                                                            );
+                                                        downloadStatusMap[judullatihanKey] =
+                                                            path != null;
+                                                      });
+
+                                                      if (path != null &&
+                                                          context.mounted) {
+                                                        ScaffoldMessenger.of(
+                                                          context,
+                                                        ).showSnackBar(
+                                                          const SnackBar(
+                                                            content: Text(
+                                                              'Video downloaded successfully',
+                                                            ),
+                                                          ),
+                                                        );
+                                                      } else if (context
+                                                          .mounted) {
+                                                        ScaffoldMessenger.of(
+                                                          context,
+                                                        ).showSnackBar(
+                                                          const SnackBar(
+                                                            content: Text(
+                                                              'Download failed',
+                                                            ),
+                                                          ),
+                                                        );
+                                                      }
+                                                    }
+                                                  },
+                                                ),
+                                        ),
                               ],
                             ),
                           ),
