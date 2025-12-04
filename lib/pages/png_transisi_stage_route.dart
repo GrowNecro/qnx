@@ -432,8 +432,10 @@ class _StageOverlayBodyState extends State<_StageOverlayBody> {
     );
 
     // Fullscreen dengan Scaffold yang extend ke belakang status bar
+    // Untuk outro (stageStartFrames sangat besar), buat transparent agar current page terlihat
+    final isOverlayOnly = widget.stageStartDelay.inMilliseconds > 5000;
     return Scaffold(
-      backgroundColor: Colors.black,
+      backgroundColor: isOverlayOnly ? Colors.transparent : Colors.black,
       extendBody: true,
       extendBodyBehindAppBar: true,
       body: AnnotatedRegion<SystemUiOverlayStyle>(

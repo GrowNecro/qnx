@@ -3,14 +3,13 @@ import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 import 'package:flutter/services.dart'
     show rootBundle, SystemChrome, SystemUiMode;
-import 'package:youtube_player_flutter/youtube_player_flutter.dart';
 import 'png_transisi_stage_route.dart';
 import 'aljabar_quiz_page.dart';
 import '../l10n/app_localizations.dart';
 import '../utils/materi_localizer.dart';
 
 class VideoPage extends StatefulWidget {
-  final String videoPath; // could be asset path, http(s) mp4 or YouTube URL
+  final String videoPath; // asset path for offline videos
   final String judulMateri;
   final String judullatihan;
 
@@ -31,17 +30,12 @@ class VideoPage extends StatefulWidget {
 
 class _VideoPageState extends State<VideoPage> {
   VideoPlayerController? _videoController;
-  YoutubePlayerController? _youtubeController;
-
-  bool _isYoutube = false;
 
   bool _isInitialized = false;
-  bool _youtubeReady = false;
 
   bool _isNavigatingToQuiz = false;
   bool _showExerciseButton = false;
   bool _isPlaying = false;
-  bool _hasStartedPlaying = false;
 
   @override
   void initState() {
@@ -55,100 +49,45 @@ class _VideoPageState extends State<VideoPage> {
 
   void _detectAndInitController() async {
     final path = widget.videoPath.trim();
+    
+    debugPrint('🎬 Loading video from: $path');
 
-    // Deteksi YouTube
-    final youtubeId = YoutubePlayer.convertUrlToId(path);
-    if (youtubeId != null && youtubeId.isNotEmpty) {
-      _isYoutube = true;
-      _initYoutubeController(youtubeId);
-      return;
-    }
+    try {
+      // Play from asset (offline mode only) with proper options
+      _videoController = VideoPlayerController.asset(
+        path,
+        videoPlayerOptions: VideoPlayerOptions(
+          mixWithOthers: false,
+          allowBackgroundPlayback: false,
+        ),
+      );
+      
+      debugPrint('🎬 Initializing video controller...');
+      await _videoController!.initialize();
 
-    // Deteksi network atau asset
-    if (path.startsWith('http://') || path.startsWith('https://')) {
-      _videoController = VideoPlayerController.networkUrl(Uri.parse(path))
-        ..initialize().then((_) {
-          if (!mounted) return;
-          setState(() => _isInitialized = true);
-          _videoController?.play();
-        });
-    } else {
-      // Play from asset (offline mode)
-      _videoController = VideoPlayerController.asset(path)
-        ..initialize().then((_) {
-          if (!mounted) return;
-          setState(() => _isInitialized = true);
-          _videoController?.play();
-        });
-    }
-
-    if (_videoController != null) {
+      if (!mounted) return;
+      
+      debugPrint('🎬 Video initialized! Size: ${_videoController!.value.size}');
+      debugPrint('🎬 Duration: ${_videoController!.value.duration}');
+      
+      setState(() => _isInitialized = true);
+      
       _videoController!.addListener(_videoListener);
-    }
-  }
-
-  void _initYoutubeController(String videoId) {
-    _youtubeController = YoutubePlayerController(
-      initialVideoId: videoId,
-      flags: const YoutubePlayerFlags(
-        autoPlay: true,
-        mute: false,
-        forceHD: false,
-        enableCaption: false,
-        disableDragSeek: false,
-        hideControls: true,
-        controlsVisibleAtStart: false,
-        loop: false,
-        useHybridComposition: true,
-      ),
-    )..addListener(_youtubeListener);
-  }
-
-  void _youtubeListener() {
-    if (!mounted || _youtubeController == null) return;
-
-    final value = _youtubeController!.value;
-
-    if (value.isReady && !_youtubeReady) {
-      setState(() => _youtubeReady = true);
-    }
-
-    // Track playing state
-    final isCurrentlyPlaying = value.playerState == PlayerState.playing;
-    if (_isPlaying != isCurrentlyPlaying) {
-      setState(() => _isPlaying = isCurrentlyPlaying);
-    }
-
-    // Track if video has started playing
-    if (!_hasStartedPlaying && value.position.inMilliseconds > 100) {
-      setState(() => _hasStartedPlaying = true);
-    }
-
-    // Saat video berakhir - langsung ke quiz
-    if (value.playerState == PlayerState.ended) {
-      try {
-        _youtubeController?.pause();
-      } catch (_) {}
-      // Langsung ke quiz saat video selesai
-      if (!_isNavigatingToQuiz) {
-        _isNavigatingToQuiz = true;
-        _goToLatihan(context);
-      }
-      return;
-    }
-
-    // Fallback: cek juga berdasarkan posisi mendekati akhir (untuk kasus ended tidak terpanggil)
-    if (value.isReady && value.position.inSeconds > 0) {
-      final remaining =
-          value.metaData.duration.inSeconds - value.position.inSeconds;
-      if (remaining <= 1 && remaining >= 0) {
-        if (!_isNavigatingToQuiz) {
-          _isNavigatingToQuiz = true;
-          try {
-            _youtubeController?.pause();
-          } catch (_) {}
-          _goToLatihan(context);
-        }
+      _videoController!.setLooping(false);
+      _videoController!.setVolume(1.0);
+      _videoController!.play();
+      
+      debugPrint('🎬 Video started playing');
+    } catch (e, stackTrace) {
+      debugPrint('❌ Error loading video: $e');
+      debugPrint('❌ Stack trace: $stackTrace');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Video gagal dimuat. Path: $path'),
+            duration: const Duration(seconds: 5),
+          ),
+        );
       }
     }
   }
@@ -185,34 +124,10 @@ class _VideoPageState extends State<VideoPage> {
       _videoController?.dispose();
     } catch (_) {}
 
-    try {
-      _youtubeController?.removeListener(_youtubeListener);
-      _youtubeController?.dispose();
-    } catch (_) {}
-
     super.dispose();
   }
 
   void _onCenterTapped() {
-    if (_isYoutube) {
-      if (_youtubeController == null || !_youtubeReady) return;
-      final playing = _youtubeController!.value.isPlaying;
-      if (playing) {
-        _youtubeController!.pause();
-        setState(() {
-          _showExerciseButton = true;
-          _isPlaying = false;
-        });
-      } else {
-        _youtubeController!.play();
-        setState(() {
-          _showExerciseButton = false;
-          _isPlaying = true;
-        });
-      }
-      return;
-    }
-
     if (_videoController == null || !_videoController!.value.isInitialized) {
       return;
     }
@@ -234,15 +149,9 @@ class _VideoPageState extends State<VideoPage> {
 
   Future<void> _goToLatihan(BuildContext ctx) async {
     // 1. Pause video dulu
-    if (_isYoutube) {
-      try {
-        _youtubeController?.pause();
-      } catch (_) {}
-    } else {
-      try {
-        _videoController?.pause();
-      } catch (_) {}
-    }
+    try {
+      _videoController?.pause();
+    } catch (_) {}
 
     // 2. Load materi.json dan cari latihan
     Map<String, dynamic>? selected;
@@ -282,10 +191,11 @@ class _VideoPageState extends State<VideoPage> {
 
     if (!mounted) return;
 
-    // 3. Mainkan tirai OUTRO di atas VideoPage (current page)
+    // 3. Mainkan tirai OUTRO di atas VideoPage (current page tetap terlihat)
     await Navigator.of(context).push(
       PngTransisiStageRoute(
-        pageUnder: const SizedBox.shrink(), // overlay-only
+        pageUnder:
+            const SizedBox.shrink(), // overlay-only, current page di bawah tetap keliatan
         backgroundBytes: null,
         pngPattern: 'assets/frames/intro/intro_%04d.png',
         pngFrameCount: 28,
@@ -294,10 +204,12 @@ class _VideoPageState extends State<VideoPage> {
         bufferSize: 8,
         targetDisplayWidth: null,
         targetDisplayHeight: null,
-        reverseFrames: true, // main mundur → tirai nutup
-        stageStartFrames: 9999, // jangan pernah tampilkan pageUnder
-        autoPopOnFinish: true, // tirai selesai → overlay pop
-        endFrameDelay: const Duration(milliseconds: 0),
+        reverseFrames: true, // kebalikan (27→0): tirai dari tertutup ke terbuka
+        stageStartFrames: 9999, // jangan tampilkan pageUnder
+        autoPopOnFinish: true, // auto pop setelah selesai
+        initialDelay: Duration.zero,
+        initialFreeze: Duration.zero,
+        endFrameDelay: const Duration(milliseconds: 80),
       ),
     );
 
@@ -317,88 +229,7 @@ class _VideoPageState extends State<VideoPage> {
   }
 
   Widget _buildVideoContent(BoxConstraints constraints) {
-    // Untuk YouTube
-    if (_isYoutube) {
-      if (_youtubeController == null) {
-        return const Center(
-          child: CircularProgressIndicator(color: Colors.orange),
-        );
-      }
-      return SizedBox.expand(
-        child: Stack(
-          fit: StackFit.expand,
-          children: [
-            FittedBox(
-              fit: BoxFit.cover,
-              clipBehavior: Clip.hardEdge,
-              child: SizedBox(
-                width: constraints.maxWidth,
-                height: constraints.maxHeight,
-                child: YoutubePlayer(
-                  controller: _youtubeController!,
-                  showVideoProgressIndicator: false,
-                  progressIndicatorColor: Colors.orange,
-                  topActions: const [],
-                  bottomActions: const [],
-                  bufferIndicator: const SizedBox.shrink(),
-                ),
-              ),
-            ),
-            // Gradient overlay untuk hide YouTube UI saat pause
-            IgnorePointer(
-              child: AnimatedOpacity(
-                opacity: _isPlaying ? 0.0 : 1.0,
-                duration: const Duration(milliseconds: 120),
-                child: Stack(
-                  children: const [
-                    Positioned(
-                      top: 0,
-                      left: 0,
-                      right: 0,
-                      height: 140,
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [
-                              Color(0xFF000000),
-                              Color(0xE6000000),
-                              Color(0x00000000),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                    Positioned(
-                      bottom: 0,
-                      left: 0,
-                      right: 0,
-                      height: 140,
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            begin: Alignment.bottomCenter,
-                            end: Alignment.topCenter,
-                            colors: [
-                              Color(0xFF000000),
-                              Color(0xE6000000),
-                              Color(0x00000000),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    // Untuk native video
+    // Loading state
     if (!_isInitialized || _videoController == null) {
       return const Center(
         child: CircularProgressIndicator(color: Colors.orange),
@@ -429,7 +260,7 @@ class _VideoPageState extends State<VideoPage> {
   Widget build(BuildContext context) {
     return Stack(
       children: [
-        // 0) BACKGROUND FULLSCREEN DI LUAR SCAFFOLD
+        // Background pattern fullscreen
         Positioned.fill(
           child: Container(
             decoration: const BoxDecoration(
@@ -441,16 +272,13 @@ class _VideoPageState extends State<VideoPage> {
           ),
         ),
 
-        // 1) SCAFFOLD TRANSPARAN DI ATAS BACKGROUND
+        // Scaffold di atas background
         Scaffold(
-          backgroundColor:
-              Colors.transparent, // penting: biar gak nutupin background-nya
+          backgroundColor: Colors.transparent,
           body: Builder(
             builder: (context) {
               // Ambil padding atas untuk menghindari area kamera/notch
-              // viewPadding tetap ada nilainya meski dalam immersive mode
               final topPadding = MediaQuery.of(context).viewPadding.top;
-              // Fallback minimal 40 jika viewPadding 0 (untuk device tanpa notch)
               final safeTop = topPadding > 0 ? topPadding : 40.0;
 
               return Stack(
@@ -528,9 +356,8 @@ class _VideoPageState extends State<VideoPage> {
                     ),
                   ),
 
-                  // Tombol Play (hanya untuk native video saat di-pause)
-                  if (!_isYoutube &&
-                      _isInitialized &&
+                  // Tombol Play saat di-pause
+                  if (_isInitialized &&
                       !_videoController!.value.isPlaying &&
                       !_isNavigatingToQuiz)
                     Center(
